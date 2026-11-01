@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+
+# Java/Maven/Gradle
+target/
+build/
+.gradle/
+*.class
+*.jar
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+
+# Excel temp files
+~$*.xlsx
+
+# Secrets — never commit real keys/endpoints
+.env
+*.env
+!.env.example
+
+# Local-only decision log (kept for our reference, never pushed)
+*.local.md
+
+# Local-only presentation/demo server (Hyperspace-specific; never pushed)
+council_project/server_local.py
+
+# Internal planning & agent/editor tooling (not part of the published project)
+docs/superpowers/
+.serena/
+.claude/
+.github/java-upgrade/
+.github/modernize/
+
+# Internal research artifacts (not required to run the project)
+LLM_Council_Research_Tracker.xlsx
+LLM_Council_Execution_Playbook.md
+
+# Generated test outputs (created at runtime; not required to run)
+generated_tests/
