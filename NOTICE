@@ -1,0 +1,26 @@
+LLM Council
+Copyright 2026 Bidisha Chatterjee, Saptarshi Basu, Vaidushi Sharma
+
+This product includes software developed by Bidisha Chatterjee, Saptarshi Basu,
+Vaidushi Sharma, and the LLM Council contributors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+---
+
+This project orchestrates third-party Large Language Models (accessed through
+a user-supplied, OpenAI-/Anthropic-/Gemini-compatible gateway) and uses the
+following open-source tools at build/test time, each under its own license:
+
+  - Apache Maven
+  - JUnit 5
+  - JaCoCo (line/branch coverage)
+  - PIT / pitest (mutation testing)
+  - Flask and Flask-CORS (Python backend)
+
+No third-party source code is bundled in this repository; these tools are
+resolved by the respective package managers at build time.
