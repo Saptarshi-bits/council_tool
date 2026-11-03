@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+title: "LLM Council"
+message: "If you use this software, please cite it using these metadata."
+type: software
+authors:
+  - given-names: Bidisha
+    family-names: Chatterjee
+  - given-names: Saptarshi
+    family-names: Basu
+    email: saptarshibasu124@gmail.com
+  - given-names: Vaidushi
+    family-names: Sharma
+abstract: >-
+  LLM Council is a multi-LLM tool that generates JUnit 5 unit tests for Java
+  classes using several language models, runs a blind peer review and vote
+  between them, synthesizes a consensus "winner" test suite, and measures
+  quality with JaCoCo line/branch coverage and PIT mutation testing — all
+  through a local Flask backend and a browser UI. It is provider-agnostic:
+  contributors bring their own API key and gateway (BYOK).
+keywords:
+  - software-testing
+  - large-language-models
+  - unit-testing
+  - junit
+  - mutation-testing
+  - code-coverage
+license: Apache-2.0
+version: 0.1.0
+date-released: "2026-11-03"
+# Replace the URL below with your repository once it is published on GitHub.
+repository-code: "https://github.com/your-username/llm-council"
