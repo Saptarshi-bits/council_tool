@@ -1,0 +1,3580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council Research Tool</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #232637; --border: #2e3148;
+    --accent: #6c63ff; --accent2: #00d4aa; --warn: #ff9f43; --danger: #ff6b6b;
+    --success: #1dd1a1; --text: #e8eaf6; --muted: #8b8fa8;
+    --gpt: #10a37f; --claude: #cc785c; --gemini: #4285f4; --council: #9c27b0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+  .app { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  .main { padding: 28px 36px; max-width: 1100px; }
+  .logo { padding: 0 18px 18px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+  .logo h1 { font-size: 14px; font-weight: 700; color: var(--accent); }
+  .logo p { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .server-badge { margin: 0 18px 14px; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .badge-ok { background: #0d2e25; color: var(--success); border: 1px solid var(--success); }
+  .badge-err { background: #2e0d0d; color: var(--danger); border: 1px solid var(--danger); }
+  .badge-checking { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  .nav-section { padding: 6px 18px 3px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .nav-item { display: flex; align-items: center; gap: 9px; padding: 8px 18px; cursor: pointer; font-size: 13px; color: var(--muted); transition: all .15s; border-left: 3px solid transparent; }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: var(--surface2); color: var(--accent); border-left-color: var(--accent); }
+  .nav-item .sn { width: 20px; height: 20px; border-radius: 50%; background: var(--surface2); font-size: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .nav-item.active .sn { background: var(--accent); color: #fff; }
+  .nav-item.done .sn { background: var(--success); color: #fff; }
+  .nav-item.done { color: var(--success); }
+  .progress-bar { background: var(--border); height: 4px; border-radius: 2px; margin: 0 18px 6px; }
+  .progress-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .4s; }
+  .progress-label { text-align: center; font-size: 11px; color: var(--muted); margin: 0 18px 14px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .page-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .page-sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; margin-bottom: 18px; }
+  .card-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .15s; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #7c74ff; }
+  .btn-success { background: var(--success); color: #000; }
+  .btn-success:hover:not(:disabled) { opacity: .9; }
+  .btn-warn { background: var(--warn); color: #000; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .btn-copy { background: var(--surface2); color: var(--accent2); border: 1px solid var(--border); padding: 5px 12px; font-size: 12px; }
+  .btn-copy:hover { background: var(--border); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .btn-run { background: var(--success); color: #000; padding: 8px 18px; font-size: 13px; }
+  .btn-run:hover:not(:disabled) { background: #1ab890; }
+  .btn-parse { background: var(--accent2); color: #000; padding: 7px 14px; font-size: 12px; }
+  .btn-parse:hover:not(:disabled) { background: #00bcaa; }
+  code { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+  textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; resize: vertical; }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  input[type="number"], input[type="text"] { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; color: var(--text); font-size: 13px; width: 100%; }
+  input:focus { outline: none; border-color: var(--accent); }
+  select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-size: 14px; width: 100%; cursor: pointer; }
+  select:focus { outline: none; border-color: var(--accent); }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .model-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .chip-gpt { background: #0d2e25; color: var(--gpt); border: 1px solid var(--gpt); }
+  .chip-claude { background: #2e1a14; color: var(--claude); border: 1px solid var(--claude); }
+  .chip-gemini { background: #0d1c3a; color: var(--gemini); border: 1px solid var(--gemini); }
+  .chip-council { background: #1e0d2e; color: var(--council); border: 1px solid var(--council); }
+  .score-header { display: grid; grid-template-columns: 170px repeat(3, 1fr); gap: 8px; font-size: 11px; text-transform: uppercase; color: var(--muted); padding: 0 0 6px; font-weight: 700; }
+  .score-row { display: grid; grid-template-columns: 170px repeat(3, 1fr); gap: 8px; align-items: center; margin-bottom: 8px; }
+  .score-label { font-size: 12px; color: var(--text); }
+  .score-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; color: var(--text); font-size: 13px; text-align: center; }
+  .score-input:focus { outline: none; border-color: var(--accent); }
+  .score-input.auto-filled { border-color: var(--success); background: #0d2e2530; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .data-table th { background: var(--surface2); padding: 9px 11px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); border-bottom: 1px solid var(--border); }
+  .data-table td { padding: 9px 11px; border-bottom: 1px solid var(--border); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .alert { padding: 11px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; display: flex; align-items: flex-start; gap: 9px; line-height: 1.5; }
+  .alert-info { background: #0d1c3a; border: 1px solid #1e3a5f; color: #90caf9; }
+  .alert-warn { background: #2e1a00; border: 1px solid #5c3800; color: var(--warn); }
+  .alert-success { background: #0d2e25; border: 1px solid #1a5c40; color: var(--success); }
+  .alert-err { background: #2e0d0d; border: 1px solid #5c1a1a; color: var(--danger); }
+  /* Terminal log */
+  .log-box { background: #06080c; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; height: 260px; overflow-y: auto; line-height: 1.7; }
+  .log-box .log-line { color: #8fa8a0; }
+  .log-box .log-ok { color: var(--success); }
+  .log-box .log-err { color: var(--danger); }
+  .log-box .log-info { color: var(--accent2); }
+  .prompt-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.8; white-space: pre-wrap; color: #c9d1d9; max-height: 300px; overflow-y: auto; position: relative; }
+  .flex-between { display: flex; justify-content: space-between; align-items: center; }
+  .flex { display: flex; align-items: center; }
+  .gap-8 { gap: 8px; }
+  .gap-12 { gap: 12px; }
+  .mt-10 { margin-top: 10px; }
+  .mt-14 { margin-top: 14px; }
+  .mt-18 { margin-top: 18px; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; background: var(--surface2); color: var(--muted); margin-right: 4px; }
+  .winner-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent2); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .metrics-auto-badge { display: inline-flex; align-items: center; gap: 5px; background: #0d2e2530; border: 1px solid var(--success); color: var(--success); padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .export-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .export-table th { background: var(--accent); color: #fff; padding: 7px 11px; text-align: left; }
+  .export-table td { padding: 6px 11px; border-bottom: 1px solid var(--border); }
+  .export-table tr:nth-child(even) td { background: var(--surface2); }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .review-block { border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+  .review-block.parsed { border-color: var(--success); }
+  .criteria-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .criteria-item { background: var(--surface2); border-radius: 6px; padding: 8px 10px; }
+  .criteria-item label { font-size: 10px; margin-bottom: 3px; text-transform: uppercase; letter-spacing: .5px; }
+  .criteria-item input { background: transparent; border: none; font-size: 16px; font-weight: 700; color: var(--accent2); width: 100%; padding: 0; text-align: center; }
+  .criteria-item input:focus { outline: none; }
+  .criteria-item input.auto-filled { color: var(--success); }
+  .overall-comment { font-size: 12px; color: var(--muted); font-style: italic; margin-top: 8px; line-height: 1.5; }
+  @media (max-width: 880px) { .app { grid-template-columns: 1fr; } .sidebar { display: none; } .main { padding: 16px; } }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <h1>⚗ LLM Council</h1>
+    <p>Research Workflow Tool</p>
+  </div>
+  <div id="serverBadge" class="server-badge badge-checking"><span class="spinner"></span> Checking server...</div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  <div class="progress-label" id="progressLabel">Step 1 of 8</div>
+  <div class="nav-section">Setup</div>
+  <div class="nav-item active" onclick="goTo(0)" id="nav0"><span class="sn">1</span>Class Selection</div>
+  <div class="nav-item" onclick="goTo(1)" id="nav1"><span class="sn">2</span>Project Setup</div>
+  <div class="nav-section">Phase 1 — Generation</div>
+  <div class="nav-item" onclick="goTo(2)" id="nav2"><span class="sn">3</span>Generate Tests</div>
+  <div class="nav-item" onclick="goTo(3)" id="nav3"><span class="sn">4</span>Run Metrics</div>
+  <div class="nav-item" onclick="goTo(4)" id="nav4"><span class="sn">5</span>Review Metrics</div>
+  <div class="nav-section">Phase 2 — Council</div>
+  <div class="nav-item" onclick="goTo(5)" id="nav5"><span class="sn">6</span>Peer Review</div>
+  <div class="nav-item" onclick="goTo(6)" id="nav6"><span class="sn">7</span>Council Vote</div>
+  <div class="nav-section">Phase 3 — Synthesis</div>
+  <div class="nav-item" onclick="goTo(7)" id="nav7"><span class="sn">8</span>Synthesis</div>
+  <div class="nav-section">Results</div>
+  <div class="nav-item" onclick="goTo(8)" id="nav8"><span class="sn">9</span>Export to Excel</div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- ═══════════ PANEL 0: Class Selection ═══════════ -->
+<div class="panel active" id="panel0">
+  <div class="page-title">Class Selection</div>
+  <div class="page-sub">Choose one of the 21 generated Java classes to run the council experiment on</div>
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--accent)"></span>Select Target Class</div>
+    <select id="classSelect" onchange="onClassChange()">
+      <option value="">— Select a class —</option>
+      <option value="BankAccount01">BankAccount01 — Domain Entity</option>
+      <option value="PasswordValidator02">PasswordValidator02 — Utility</option>
+      <option value="ShoppingCart03">ShoppingCart03 — Service</option>
+      <option value="BinarySearchTree04">BinarySearchTree04 — Data Structure</option>
+      <option value="SortingAlgorithms05">SortingAlgorithms05 — Algorithms</option>
+      <option value="Employee06">Employee06 — Domain Entity</option>
+      <option value="Employee07">Employee07 — Domain Entity</option>
+      <option value="LibraryBook08">LibraryBook08 — Domain Entity</option>
+      <option value="HotelReservation09">HotelReservation09 — Domain Entity</option>
+      <option value="Order10">Order10 — Domain Entity</option>
+      <option value="EmailValidator11">EmailValidator11 — Utility</option>
+      <option value="CreditCardValidator12">CreditCardValidator12 — Utility</option>
+      <option value="DateRangeUtil13">DateRangeUtil13 — Utility</option>
+      <option value="InventoryManager14">InventoryManager14 — Service</option>
+      <option value="RateLimiter15">RateLimiter15 — Service</option>
+      <option value="NotificationService16">NotificationService16 — Service</option>
+      <option value="Stack17">Stack17 — Data Structure</option>
+      <option value="CircularQueue18">CircularQueue18 — Data Structure</option>
+      <option value="DoublyLinkedList19">DoublyLinkedList19 — Data Structure</option>
+      <option value="StringAlgorithms20">StringAlgorithms20 — Algorithms</option>
+      <option value="MathOperations21">MathOperations21 — Algorithms</option>
+    </select>
+  </div>
+  <div id="classInfoCard" style="display:none">
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent2)"></span>Class Details</div>
+      <div id="classDescription"></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--warn)"></span>Source Code</div>
+      <div class="flex-between" style="margin-bottom:10px">
+        <span style="font-size:12px; color:var(--muted)">This will be embedded in the generation prompt automatically</span>
+        <button class="btn btn-copy btn-sm" onclick="copySource()">📋 Copy Source</button>
+      </div>
+      <pre class="prompt-box" id="sourceCodeDisplay" style="max-height:220px"></pre>
+    </div>
+    <div style="text-align:right">
+      <button class="btn btn-primary" onclick="goTo(1)">Continue to Setup →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ PANEL 1: Project Setup ═══════════ -->
+<div class="panel" id="panel1">
+  <div class="page-title">Project Setup</div>
+  <div class="page-sub">One click — builds the project and creates all output folders</div>
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--accent)"></span>Project Path</div>
+    <label>Confirm your project path:</label>
+    <input type="text" id="projectPath" value="./council_project" oninput="state.projectPath = this.value">
+  </div>
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--accent2)"></span>Run Setup</div>
+    <div class="alert alert-info" style="margin-bottom:14px">ℹ️ This will run <code>./gradlew build</code> and create the generated_tests folders. Takes ~30 seconds.</div>
+    <button class="btn btn-run" id="setupBtn" onclick="runSetup()">▶ Run Setup</button>
+    <div id="setupLog" class="log-box mt-10" style="display:none"></div>
+    <div id="setupResult" style="margin-top:10px"></div>
+  </div>
+  <div style="text-align:right">
+    <button class="btn btn-primary" id="setupNext" onclick="goTo(2)" disabled>Continue to Generate Tests →</button>
+  </div>
+</div>
+
+<!-- ═══════════ PANEL 2: Generate Tests ═══════════ -->
+<div class="panel" id="panel2">
+  <div class="page-title">Generate Tests</div>
+  <div class="page-sub">Paste the prompt into GPT-5.5, Claude, and Gemini — then paste their responses back here</div>
+  <div class="alert alert-warn">⚠️ <strong>Human step:</strong> Copy the prompt below → open each AI in browser → paste → copy response → paste into the textarea. Everything else is automated.</div>
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--accent)"></span>Generation Prompt — Send to all 3 AIs</div>
+    <div class="flex-between" style="margin-bottom:8px">
+      <span style="font-size:12px; color:var(--muted)">Source code is already embedded. Just copy and paste.</span>
+      <button class="btn btn-copy btn-sm" onclick="copyGenPrompt()">📋 Copy Prompt</button>
+    </div>
+    <pre class="prompt-box" id="generationPrompt">Select a class first</pre>
+  </div>
+  <div class="grid-3">
+    <div class="card" style="border-top:2px solid var(--gpt)">
+      <div class="card-title"><span class="dot" style="background:var(--gpt)"></span>GPT-5.5</div>
+      <div style="margin-bottom:6px; font-size:12px; color:var(--muted)">1. Click <strong>🤖 Auto</strong> below to call GPT-5.5 via the API, or paste a response manually from <strong>chat.openai.com</strong></div>
+      <textarea id="gptOutput" placeholder="Paste GPT-5.5 test class here..." style="min-height:160px"></textarea>
+      <button class="btn btn-run btn-sm" style="margin-top:8px; width:100%" onclick="autoGpt(this,'generationPrompt','gptOutput',{strip:true})">🤖 Auto-generate with GPT API</button>
+    </div>
+    <div class="card" style="border-top:2px solid var(--claude)">
+      <div class="card-title"><span class="dot" style="background:var(--claude)"></span>Claude</div>
+      <div style="margin-bottom:6px; font-size:12px; color:var(--muted)">2. Click <strong>🤖 Auto</strong> below to call Claude via the API, or paste a response manually from <strong>claude.ai</strong></div>
+      <textarea id="claudeOutput" placeholder="Paste Claude test class here..." style="min-height:160px"></textarea>
+      <button class="btn btn-run btn-sm" style="margin-top:8px; width:100%" onclick="autoClaude(this,'generationPrompt','claudeOutput',{strip:true})">🤖 Auto-generate with Claude API</button>
+    </div>
+    <div class="card" style="border-top:2px solid var(--gemini)">
+      <div class="card-title"><span class="dot" style="background:var(--gemini)"></span>Gemini</div>
+      <div style="margin-bottom:6px; font-size:12px; color:var(--muted)">3. Open <strong>gemini.google.com</strong> → paste same prompt → copy Java response</div>
+      <textarea id="geminiOutput" placeholder="Paste Gemini test class here..." style="min-height:160px"></textarea>
+      <button class="btn btn-run btn-sm" style="margin-top:8px; width:100%" onclick="autoGemini(this,'generationPrompt','geminiOutput',{strip:true})">🤖 Auto-generate with Gemini API</button>
+    </div>
+  </div>
+  <div style="text-align:right">
+    <button class="btn btn-primary" onclick="saveTests()">💾 Save Tests &amp; Continue →</button>
+  </div>
+</div>
+
+<!-- ═══════════ PANEL 3: Run Metrics ═══════════ -->
+<div class="panel" id="panel3">
+  <div class="page-title">Run Metrics</div>
+  <div class="page-sub">Click Run for each model — JaCoCo and PIT run automatically, scores are extracted and filled in</div>
+  <div class="alert alert-info">ℹ️ Each run takes 1–3 minutes (PIT mutation testing is slow). You can run all three then move on.</div>
+  <button class="btn btn-run" style="margin-bottom:18px" onclick="runAllMetrics()">▶ Run All Three</button>
+  <div style="display:flex; flex-direction:column; gap:14px">
+    <div class="card" id="metricsCard_GPT" style="border-left:3px solid var(--gpt)">
+      <div class="flex-between" style="margin-bottom:12px">
+        <span class="model-chip chip-gpt">GPT-5.5</span>
+        <div class="flex gap-8">
+          <div id="metricsStatus_GPT" style="font-size:12px; color:var(--muted)">Waiting...</div>
+          <button class="btn btn-run btn-sm" id="runBtn_GPT" onclick="runMetrics('GPT')">▶ Run</button>
+        </div>
+      </div>
+      <div id="metricsLog_GPT" class="log-box" style="height:160px; display:none"></div>
+    </div>
+    <div class="card" id="metricsCard_Claude" style="border-left:3px solid var(--claude)">
+      <div class="flex-between" style="margin-bottom:12px">
+        <span class="model-chip chip-claude">Claude</span>
+        <div class="flex gap-8">
+          <div id="metricsStatus_Claude" style="font-size:12px; color:var(--muted)">Waiting...</div>
+          <button class="btn btn-run btn-sm" id="runBtn_Claude" onclick="runMetrics('Claude')">▶ Run</button>
+        </div>
+      </div>
+      <div id="metricsLog_Claude" class="log-box" style="height:160px; display:none"></div>
+    </div>
+    <div class="card" id="metricsCard_Gemini" style="border-left:3px solid var(--gemini)">
+      <div class="flex-between" style="margin-bottom:12px">
+        <span class="model-chip chip-gemini">Gemini</span>
+        <div class="flex gap-8">
+          <div id="metricsStatus_Gemini" style="font-size:12px; color:var(--muted)">Waiting...</div>
+          <button class="btn btn-run btn-sm" id="runBtn_Gemini" onclick="runMetrics('Gemini')">▶ Run</button>
+        </div>
+      </div>
+      <div id="metricsLog_Gemini" class="log-box" style="height:160px; display:none"></div>
+    </div>
+  </div>
+  <div style="text-align:right; margin-top:6px">
+    <button class="btn btn-primary" onclick="goTo(4)">View & Confirm Metrics →</button>
+  </div>
+</div>
+
+<!-- ═══════════ PANEL 4: Review Metrics ═══════════ -->
+<div class="panel" id="panel4">
+  <div class="page-title">Review Phase 1 Metrics</div>
+  <div class="page-sub">Fields are auto-filled from JaCoCo and PIT reports — edit any value if needed</div>
+  <div id="metricsAutoNote" class="alert alert-success" style="display:none">✅ All metrics auto-filled from build reports. Edit any value to correct it.</div>
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--accent)"></span>Phase 1 Metrics</div>
+    <div class="score-header">
+      <div>Metric</div>
+      <div style="color:var(--gpt)">GPT-5.5</div>
+      <div style="color:var(--claude)">Claude</div>
+      <div style="color:var(--gemini)">Gemini</div>
+    </div>
+    <div class="score-row"><div class="score-label">Compile?</div>
+      <select class="score-input" id="gpt_compile"><option>YES</option><option>NO</option></select>
+      <select class="score-input" id="claude_compile"><option>YES</option><option>NO</option></select>
+      <select class="score-input" id="gemini_compile"><option>YES</option><option>NO</option></select>
+    </div>
+    <div class="score-row"><div class="score-label">Tests Pass?</div>
+      <select class="score-input" id="gpt_pass"><option>YES</option><option>NO</option></select>
+      <select class="score-input" id="claude_pass"><option>YES</option><option>NO</option></select>
+      <select class="score-input" id="gemini_pass"><option>YES</option><option>NO</option></select>
+    </div>
+    <div class="score-row"><div class="score-label">Test Count</div>
+      <input type="number" class="score-input" id="gpt_testcount" min="0">
+      <input type="number" class="score-input" id="claude_testcount" min="0">
+      <input type="number" class="score-input" id="gemini_testcount" min="0">
+    </div>
+    <div class="score-row"><div class="score-label">Line Coverage %</div>
+      <input type="number" class="score-input" id="gpt_line" min="0" max="100" step="0.1">
+      <input type="number" class="score-input" id="claude_line" min="0" max="100" step="0.1">
+      <input type="number" class="score-input" id="gemini_line" min="0" max="100" step="0.1">
+    </div>
+    <div class="score-row"><div class="score-label">Branch Coverage %</div>
+      <input type="number" class="score-input" id="gpt_branch" min="0" max="100" step="0.1">
+      <input type="number" class="score-input" id="claude_branch" min="0" max="100" step="0.1">
+      <input type="number" class="score-input" id="gemini_branch" min="0" max="100" step="0.1">
+    </div>
+    <div class="score-row"><div class="score-label">Mutation Score %</div>
+      <input type="number" class="score-input" id="gpt_mutation" min="0" max="100" step="0.1">
+      <input type="number" class="score-input" id="claude_mutation" min="0" max="100" step="0.1">
+      <input type="number" class="score-input" id="gemini_mutation" min="0" max="100" step="0.1">
+    </div>
+    <div class="score-row"><div class="score-label">Runtime Failures</div>
+      <input type="number" class="score-input" id="gpt_failures" min="0">
+      <input type="number" class="score-input" id="claude_failures" min="0">
+      <input type="number" class="score-input" id="gemini_failures" min="0">
+    </div>
+  </div>
+  <div style="text-align:right">
+    <button class="btn btn-primary" onclick="goTo(5)">Continue to Peer Review →</button>
+  </div>
+</div>
+
+<!-- ═══════════ PANEL 5: Peer Review ═══════════ -->
+<div class="panel" id="panel5">
+  <div class="page-title">Peer Review</div>
+  <div class="page-sub">Copy each review prompt → send to the reviewing AI → paste JSON response → scores auto-fill</div>
+  <div class="alert alert-warn">⚠️ <strong>Human step (×6):</strong> Paste each prompt into the reviewer AI, get the JSON back, paste it in the box below — scores are extracted automatically.</div>
+  <div id="reviewBlocks"></div>
+  <div style="text-align:right; margin-top:14px">
+    <button class="btn btn-primary" onclick="goTo(6)">Continue to Council Vote →</button>
+  </div>
+</div>
+
+<!-- ═══════════ PANEL 6: Council Vote ═══════════ -->
+<div class="panel" id="panel6">
+  <div class="page-title">Council Vote</div>
+  <div class="page-sub">Send all 3 test suites to each model → paste the JSON vote response → winner auto-detected → metrics auto-run</div>
+  <div class="alert alert-warn">⚠️ <strong>Human step (×3):</strong> Paste the voting prompt into each AI, get the JSON vote, paste it below.</div>
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--council)"></span>Voting Prompt — Send to all 3 AIs</div>
+    <div class="flex-between" style="margin-bottom:8px">
+      <span style="font-size:12px; color:var(--muted)">All 3 test suites are embedded. Copy and paste into each AI.</span>
+      <button class="btn btn-copy btn-sm" onclick="copyVotePrompt()">📋 Copy Prompt</button>
+    </div>
+    <pre class="prompt-box" id="votingPrompt" style="max-height:240px">Paste AI outputs first (Step 3)</pre>
+  </div>
+  <div class="grid-3">
+    <div class="card" style="border-top:2px solid var(--gpt)">
+      <div class="card-title"><span class="dot" style="background:var(--gpt)"></span>GPT-5.5 Vote</div>
+      <label>Paste GPT-5.5 vote JSON:</label>
+      <textarea id="voteJson_GPT" placeholder='{"vote":"A","rank_1":"A","rank_2":"B","rank_3":"C",...}' style="min-height:100px" oninput="autoParseVote('GPT')"></textarea>
+      <div class="flex-between mt-10">
+        <span id="voteParsed_GPT" style="font-size:12px; color:var(--muted)">—</span>
+        <div class="flex gap-8">
+          <button class="btn btn-run btn-sm" onclick="autoGpt(this,'votingPrompt','voteJson_GPT')">🤖 Auto</button>
+          <button class="btn btn-parse btn-sm" onclick="parseVote('GPT')">⚡ Parse</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="border-top:2px solid var(--claude)">
+      <div class="card-title"><span class="dot" style="background:var(--claude)"></span>Claude Vote</div>
+      <label>Paste Claude vote JSON:</label>
+      <textarea id="voteJson_Claude" placeholder='{"vote":"B","rank_1":"B","rank_2":"A","rank_3":"C",...}' style="min-height:100px" oninput="autoParseVote('Claude')"></textarea>
+      <div class="flex-between mt-10">
+        <span id="voteParsed_Claude" style="font-size:12px; color:var(--muted)">—</span>
+        <div class="flex gap-8">
+          <button class="btn btn-run btn-sm" onclick="autoClaude(this,'votingPrompt','voteJson_Claude')">🤖 Auto</button>
+          <button class="btn btn-parse btn-sm" onclick="parseVote('Claude')">⚡ Parse</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="border-top:2px solid var(--gemini)">
+      <div class="card-title"><span class="dot" style="background:var(--gemini)"></span>Gemini Vote</div>
+      <label>Paste Gemini vote JSON:</label>
+      <textarea id="voteJson_Gemini" placeholder='{"vote":"C","rank_1":"C","rank_2":"A","rank_3":"B",...}' style="min-height:100px" oninput="autoParseVote('Gemini')"></textarea>
+      <div class="flex-between mt-10">
+        <span id="voteParsed_Gemini" style="font-size:12px; color:var(--muted)">—</span>
+        <div class="flex gap-8">
+          <button class="btn btn-run btn-sm" onclick="autoGemini(this,'votingPrompt','voteJson_Gemini')">🤖 Auto</button>
+          <button class="btn btn-parse btn-sm" onclick="parseVote('Gemini')">⚡ Parse</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="tallySection" style="display:none">
+    <div class="card" style="border-color:var(--council)">
+      <div class="card-title"><span class="dot" style="background:var(--council)"></span>Vote Tally</div>
+      <div id="tallyDisplay"></div>
+      <hr class="divider">
+      <div id="winnerSection"></div>
+      <div id="winnerMetricsLog" class="log-box mt-10" style="display:none; height:200px"></div>
+      <div id="winnerMetricsFields" style="display:none; margin-top:14px">
+        <div class="grid-2">
+          <div><label>Line Coverage %</label><input type="number" id="winner_line" class="score-input" min="0" max="100" step="0.1"></div>
+          <div><label>Branch Coverage %</label><input type="number" id="winner_branch" class="score-input" min="0" max="100" step="0.1"></div>
+          <div><label>Mutation Score %</label><input type="number" id="winner_mutation" class="score-input" min="0" max="100" step="0.1"></div>
+          <div><label>Test Count</label><input type="number" id="winner_testcount" class="score-input" min="0"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="text-align:right; margin-top:14px">
+    <button class="btn btn-primary" onclick="goTo(7)">Continue to Synthesis →</button>
+  </div>
+</div>
+
+<!-- ═══════════ PANEL 7: Synthesis ═══════════ -->
+<div class="panel" id="panel7">
+  <div class="page-title">Synthesis</div>
+  <div class="page-sub">Each model receives the winner suite + all 3 blind reviews and synthesizes a final improved suite. Metrics decide the best.</div>
+  <div class="alert alert-warn">⚠️ <strong>Human step (×3):</strong> Copy the synthesis prompt → paste into each AI → paste the Java response back → run metrics automatically.</div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--council)"></span>Blind Mapping (for your reference only — not shown in prompts)</div>
+    <div id="blindMappingDisplay" style="font-size:13px; color:var(--muted)"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--accent)"></span>Synthesis Prompt — Send to all 3 AIs</div>
+    <div class="flex-between" style="margin-bottom:8px">
+      <span style="font-size:12px; color:var(--muted)">Winner suite + all 3 blind reviews embedded. Copy and paste into each AI.</span>
+      <button class="btn btn-copy btn-sm" onclick="copySynthesisPrompt()">📋 Copy Prompt</button>
+    </div>
+    <pre class="prompt-box" id="synthesisPrompt" style="max-height:280px">Go to Council Vote first to identify the winner.</pre>
+  </div>
+
+  <div class="grid-3">
+    <div class="card" style="border-top:2px solid var(--gpt)">
+      <div class="card-title"><span class="dot" style="background:var(--gpt)"></span>GPT-5.5 Synthesis</div>
+      <div style="margin-bottom:6px; font-size:12px; color:var(--muted)">Paste GPT-5.5 synthesized test class:</div>
+      <textarea id="synthesisOutput_GPT" placeholder="Paste GPT-5.5 synthesized suite here..." style="min-height:140px"></textarea>
+      <button class="btn btn-run btn-sm" style="margin-top:8px; width:100%" onclick="autoGpt(this,'synthesisPrompt','synthesisOutput_GPT',{strip:true})">🤖 Auto-synthesize with GPT API</button>
+      <div class="flex gap-8 mt-10">
+        <div id="synthesisStatus_GPT" style="font-size:12px; color:var(--muted); flex:1">Waiting...</div>
+        <button class="btn btn-run btn-sm" id="synthRunBtn_GPT" onclick="saveSynthesisAndRun('GPT')">▶ Save &amp; Run Metrics</button>
+      </div>
+      <div id="synthesisLog_GPT" class="log-box mt-10" style="height:120px; display:none"></div>
+    </div>
+    <div class="card" style="border-top:2px solid var(--claude)">
+      <div class="card-title"><span class="dot" style="background:var(--claude)"></span>Claude Synthesis</div>
+      <div style="margin-bottom:6px; font-size:12px; color:var(--muted)">Paste Claude synthesized test class:</div>
+      <textarea id="synthesisOutput_Claude" placeholder="Paste Claude synthesized suite here..." style="min-height:140px"></textarea>
+      <button class="btn btn-run btn-sm" style="margin-top:8px; width:100%" onclick="autoClaude(this,'synthesisPrompt','synthesisOutput_Claude',{strip:true})">🤖 Auto-synthesize with Claude API</button>
+      <div class="flex gap-8 mt-10">
+        <div id="synthesisStatus_Claude" style="font-size:12px; color:var(--muted); flex:1">Waiting...</div>
+        <button class="btn btn-run btn-sm" id="synthRunBtn_Claude" onclick="saveSynthesisAndRun('Claude')">▶ Save &amp; Run Metrics</button>
+      </div>
+      <div id="synthesisLog_Claude" class="log-box mt-10" style="height:120px; display:none"></div>
+    </div>
+    <div class="card" style="border-top:2px solid var(--gemini)">
+      <div class="card-title"><span class="dot" style="background:var(--gemini)"></span>Gemini Synthesis</div>
+      <div style="margin-bottom:6px; font-size:12px; color:var(--muted)">Paste Gemini synthesized test class:</div>
+      <textarea id="synthesisOutput_Gemini" placeholder="Paste Gemini synthesized suite here..." style="min-height:140px"></textarea>
+      <button class="btn btn-run btn-sm" style="margin-top:8px; width:100%" onclick="autoGemini(this,'synthesisPrompt','synthesisOutput_Gemini',{strip:true})">🤖 Auto-synthesize with Gemini API</button>
+      <div class="flex gap-8 mt-10">
+        <div id="synthesisStatus_Gemini" style="font-size:12px; color:var(--muted); flex:1">Waiting...</div>
+        <button class="btn btn-run btn-sm" id="synthRunBtn_Gemini" onclick="saveSynthesisAndRun('Gemini')">▶ Save &amp; Run Metrics</button>
+      </div>
+      <div id="synthesisLog_Gemini" class="log-box mt-10" style="height:120px; display:none"></div>
+    </div>
+  </div>
+
+  <div id="synthesisResultSection" style="display:none">
+    <div class="card" style="border-color:var(--council)">
+      <div class="card-title"><span class="dot" style="background:var(--council)"></span>Synthesis Metrics Comparison</div>
+      <div id="synthesisMetricsDisplay"></div>
+      <hr class="divider">
+      <div id="synthesisWinnerDisplay"></div>
+    </div>
+  </div>
+
+  <div style="text-align:right; margin-top:14px">
+    <button class="btn btn-primary" onclick="goTo(8)">Continue to Export →</button>
+  </div>
+</div>
+
+<!-- ═══════════ PANEL 8: Export ═══════════ -->
+<div class="panel" id="panel8">
+  <div class="page-title">Export to Excel</div>
+  <div class="page-sub">Click "Copy Table" on each section → paste directly into Excel or Google Sheets</div>
+  <div class="card">
+    <div class="flex-between"><div class="card-title"><span class="dot" style="background:var(--accent)"></span>S2 — Phase 1 Metrics</div><button class="btn btn-outline btn-sm" onclick="copyTable('s2table')">📋 Copy Table</button></div>
+    <div id="s2Display"></div>
+  </div>
+  <div class="card">
+    <div class="flex-between"><div class="card-title"><span class="dot" style="background:var(--accent2)"></span>S3 — Peer Review Scores</div><button class="btn btn-outline btn-sm" onclick="copyTable('s3table')">📋 Copy Table</button></div>
+    <div id="s3Display"></div>
+  </div>
+  <div class="card">
+    <div class="flex-between"><div class="card-title"><span class="dot" style="background:var(--council)"></span>S4 — Council Vote</div><button class="btn btn-outline btn-sm" onclick="copyTable('s4table')">📋 Copy Table</button></div>
+    <div id="s4Display"></div>
+  </div>
+  <div class="card">
+    <div class="flex-between"><div class="card-title"><span class="dot" style="background:var(--warn)"></span>S5 — Phase 2 Winner Metrics</div><button class="btn btn-outline btn-sm" onclick="copyTable('s5table')">📋 Copy Table</button></div>
+    <div id="s5Display"></div>
+  </div>
+  <div class="card">
+    <div class="flex-between"><div class="card-title"><span class="dot" style="background:var(--success)"></span>S6 — Comparison Delta</div><button class="btn btn-outline btn-sm" onclick="copyTable('s6table')">📋 Copy Table</button></div>
+    <div id="s6Display"></div>
+  </div>
+  <div class="card">
+    <div class="flex-between"><div class="card-title"><span class="dot" style="background:var(--council)"></span>S7 — Synthesis Results</div><button class="btn btn-outline btn-sm" onclick="copyTable('s7table')">📋 Copy Table</button></div>
+    <div id="s7Display"></div>
+  </div>
+  <div style="text-align:center; margin-top:20px">
+    <button class="btn btn-success" onclick="downloadAll()" style="padding:13px 30px; font-size:14px">⬇ Download All Data as CSV</button>
+  </div>
+</div>
+
+</main>
+</div>
+
+<script>
+const API = 'http://localhost:5001';
+
+// ─── LLM API automation (all via Hyperspace proxy, skips manual copy-paste) ──
+async function callGeminiAPI(prompt) { return callProviderAPI('/gemini', prompt); }
+async function callGptAPI(prompt)    { return callProviderAPI('/gpt',    prompt); }
+async function callClaudeAPI(prompt) { return callProviderAPI('/claude', prompt); }
+
+// Shared fetch → provider proxy on the local Flask backend.
+async function callProviderAPI(endpoint, prompt) {
+  const r = await fetch(API + endpoint, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({prompt})
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || data.error) {
+    throw new Error((data.error || ('HTTP ' + r.status)) + (data.detail ? '\n' + data.detail : ''));
+  }
+  return data.text || '';
+}
+
+// Strip a leading ```lang fence and trailing ``` the model may wrap code in.
+function stripCodeFences(text) {
+  return text.trim()
+    .replace(/^```[a-zA-Z]*\s*\n?/, '')
+    .replace(/\n?```\s*$/, '')
+    .trim();
+}
+
+const PROVIDERS = {
+  gpt:    {label: 'GPT',    call: callGptAPI},
+  claude: {label: 'Claude', call: callClaudeAPI},
+  gemini: {label: 'Gemini', call: callGeminiAPI},
+};
+
+// Reads a prompt element, calls the chosen provider, fills the target box, fires its handlers.
+async function autoLLM(btn, promptElId, targetElId, provider, opts = {}) {
+  const prompt = (document.getElementById(promptElId)?.textContent || '').trim();
+  if (!prompt || /^(Select a class|Paste AI|Go to)/.test(prompt)) {
+    alert('Prompt not ready yet — complete the earlier steps first.');
+    return;
+  }
+  const {label, call} = PROVIDERS[provider];
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ ' + label + '…';
+  try {
+    let text = await call(prompt);
+    if (opts.strip) text = stripCodeFences(text);
+    const el = document.getElementById(targetElId);
+    el.value = text;
+    el.dispatchEvent(new Event('input'));   // triggers autoParseReview / autoParseVote
+    btn.textContent = '✓ Done';
+  } catch (e) {
+    btn.textContent = '✗ Error';
+    alert(label + ' call failed:\n' + e.message);
+  } finally {
+    setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 1500);
+  }
+}
+
+// Thin wrappers so existing onclick handlers keep working.
+function autoGemini(btn, promptElId, targetElId, opts = {}) {
+  return autoLLM(btn, promptElId, targetElId, 'gemini', opts);
+}
+function autoGpt(btn, promptElId, targetElId, opts = {}) {
+  return autoLLM(btn, promptElId, targetElId, 'gpt', opts);
+}
+function autoClaude(btn, promptElId, targetElId, opts = {}) {
+  return autoLLM(btn, promptElId, targetElId, 'claude', opts);
+}
+
+const MODELS = ['GPT', 'Claude', 'Gemini'];
+
+// Blind mapping: shuffled once per page load. suiteLabel['GPT'] → 'A'|'B'|'C'
+const _shuffled = [...MODELS].sort(() => Math.random() - 0.5);
+const suiteLabel = {};   // model → label  e.g. {GPT:'B', Claude:'A', Gemini:'C'}
+const suiteModel = {};   // label → model  e.g. {A:'Claude', B:'GPT', C:'Gemini'}
+_shuffled.forEach((m, i) => {
+  const lbl = ['A','B','C'][i];
+  suiteLabel[m] = lbl;
+  suiteModel[lbl] = m;
+});
+
+const state = {
+  currentPanel: 0,
+  selectedClass: '',
+  projectPath: './council_project',
+  metrics: {GPT: null, Claude: null, Gemini: null},
+  reviewScores: Array(6).fill(null),
+  votes: {GPT: null, Claude: null, Gemini: null},
+  winner: null,
+  winnerMetrics: null,
+  synthesisMetrics: {GPT: null, Claude: null, Gemini: null},
+  synthesisWinner: null,
+  synthesisWinnerMetrics: null,
+};
+
+const CLASS_INFO = {
+  BankAccount01: { desc:'Domain entity — bank account with deposits, withdrawals, transfers, freeze/unfreeze, and interest calculation. Rich branch logic.', tags:['Domain Entity','Branch-rich','Exceptions'] },
+  PasswordValidator02: { desc:'Utility class — validates passwords against rules (length, uppercase, digit, special char) and calculates strength. Also masks passwords.', tags:['Utility','Regex','Multiple conditions'] },
+  ShoppingCart03: { desc:'Service class — shopping cart with item management, coupon/discount logic, tax calculation, and total computation.', tags:['Service','State management','Calculations'] },
+  BinarySearchTree04: { desc:'Data structure — BST with insert, delete, contains, min/max, height, inorder/level-order traversal, and validity check. High mutation score potential.', tags:['Data Structure','Recursive','High mutation'] },
+  SortingAlgorithms05: { desc:'Algorithm class — bubble sort, merge sort, quicksort, binary search, kth largest, isSorted, and duplicate removal. Pure functions.', tags:['Algorithms','Pure functions','Arrays'] },
+  Employee06: { desc:'Domain entity — employee with department/level, salary, bonuses, promotion, transfer, and annual raise calculation based on seniority.', tags:['Domain Entity','State management','Calculations'] },
+  Employee07: { desc:'Domain entity — employee with department/role enums, salary, bonus, promotion history, raise, transfer, termination, and rehire logic.', tags:['Domain Entity','State machine','Exceptions'] },
+  LibraryBook08: { desc:'Domain entity — library book state machine: check-out, return, reservation queue, overdue fines, lost/maintenance transitions.', tags:['Domain Entity','State machine','Queue'] },
+  HotelReservation09: { desc:'Domain entity — hotel reservation lifecycle: confirm, check-in/out, cancellation with fee, breakfast add-on, deposit, and stay extension.', tags:['Domain Entity','State machine','Pricing'] },
+  Order10: { desc:'Domain entity — e-commerce order with line items, status transitions (pending→shipped→delivered→refunded), discount, tax, and cancellation.', tags:['Domain Entity','State machine','Calculations'] },
+  EmailValidator11: { desc:'Utility class — RFC-lite email validation with local/domain part rules, domain extraction, plus-tag normalisation, and same-domain check.', tags:['Utility','Parsing','Multiple conditions'] },
+  CreditCardValidator12: { desc:'Utility class — Luhn algorithm validation, card brand detection (Visa/MC/Amex/Discover), masking, expiry, and CVV validation.', tags:['Utility','Algorithm','Branch-rich'] },
+  DateRangeUtil13: { desc:'Utility class — date range operations: overlap, intersection, union, subtraction, business-day counting, and month-based splitting.', tags:['Utility','Date logic','Pure functions'] },
+  InventoryManager14: { desc:'Service class — product catalog with stock management, restock, order fulfilment, inter-product transfers, low-stock detection.', tags:['Service','State management','Collections'] },
+  RateLimiter15: { desc:'Service class — thread-safe rate limiter with sliding-window and token-bucket strategies, available-request query, and reset.', tags:['Service','Concurrency','Algorithm'] },
+  NotificationService16: { desc:'Service class — notification routing with retry, deduplication, per-recipient suppression, per-channel enable/disable, and audit log.', tags:['Service','State management','Branch-rich'] },
+  Stack17: { desc:'Data structure — generic array-backed stack with O(1) min and max tracking using auxiliary stacks, and dynamic resizing.', tags:['Data Structure','Generics','Algorithm'] },
+  CircularQueue18: { desc:'Data structure — generic fixed-capacity circular buffer queue with enqueue/dequeue, peek-first/last, contains, and toArray.', tags:['Data Structure','Generics','Algorithm'] },
+  DoublyLinkedList19: { desc:'Data structure — generic doubly-linked list with add/remove by index or value, reverse, natural-order sort, and bidirectional traversal.', tags:['Data Structure','Generics','Recursive'] },
+  StringAlgorithms20: { desc:'Algorithm class — palindrome check, anagram, longest non-repeating substring, KMP search, word reversal, occurrence count, rotation check.', tags:['Algorithms','String processing','Multiple algorithms'] },
+  MathOperations21: { desc:'Algorithm class — GCD, LCM, primality, factorial (BigInteger), Fibonacci, fast-exponentiation (with modulus), perfect square, prime factors, combinations.', tags:['Algorithms','Pure functions','Math'] },
+};
+
+const SOURCE_CODE = {
+BankAccount01:`package io.council;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+public class BankAccount01 {
+
+    public enum AccountType { CHECKING, SAVINGS }
+
+    private final String accountId;
+    private final String ownerName;
+    private final AccountType type;
+    private double balance;
+    private boolean frozen;
+    private final List<String> transactionHistory;
+
+    public BankAccount01(String accountId, String ownerName, AccountType type, double initialBalance) {
+        if (accountId == null || accountId.isBlank()) throw new IllegalArgumentException("Account ID required");
+        if (ownerName == null || ownerName.isBlank()) throw new IllegalArgumentException("Owner name required");
+        if (initialBalance < 0) throw new IllegalArgumentException("Initial balance cannot be negative");
+        this.accountId = accountId;
+        this.ownerName = ownerName;
+        this.type = type;
+        this.balance = initialBalance;
+        this.frozen = false;
+        this.transactionHistory = new ArrayList<>();
+        transactionHistory.add("OPEN:" + initialBalance);
+    }
+
+    public void deposit(double amount) {
+        if (frozen) throw new IllegalStateException("Account is frozen");
+        if (amount <= 0) throw new IllegalArgumentException("Deposit amount must be positive");
+        balance += amount;
+        transactionHistory.add("DEPOSIT:" + amount);
+    }
+
+    public void withdraw(double amount) {
+        if (frozen) throw new IllegalStateException("Account is frozen");
+        if (amount <= 0) throw new IllegalArgumentException("Withdrawal amount must be positive");
+        if (amount > balance) throw new IllegalStateException("Insufficient funds");
+        balance -= amount;
+        transactionHistory.add("WITHDRAW:" + amount);
+    }
+
+    public void transfer(BankAccount01 target, double amount) {
+        if (target == null) throw new IllegalArgumentException("Target account required");
+        if (this == target) throw new IllegalArgumentException("Cannot transfer to same account");
+        this.withdraw(amount);
+        target.deposit(amount);
+        transactionHistory.add("TRANSFER_OUT:" + amount + "->" + target.accountId);
+        target.transactionHistory.add("TRANSFER_IN:" + amount + "<-" + this.accountId);
+    }
+
+    public void freeze() { this.frozen = true; }
+    public void unfreeze() { this.frozen = false; }
+
+    public double getBalance() { return balance; }
+    public String getAccountId() { return accountId; }
+    public String getOwnerName() { return ownerName; }
+    public AccountType getType() { return type; }
+    public boolean isFrozen() { return frozen; }
+    public List<String> getTransactionHistory() { return Collections.unmodifiableList(transactionHistory); }
+
+    public double calculateInterest(double annualRate, int months) {
+        if (annualRate < 0) throw new IllegalArgumentException("Rate cannot be negative");
+        if (months <= 0) throw new IllegalArgumentException("Months must be positive");
+        if (type == AccountType.CHECKING) return 0;
+        return balance * (annualRate / 100) * (months / 12.0);
+    }
+}`,
+
+PasswordValidator02:`package io.council;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Pattern;
+
+public class PasswordValidator02 {
+
+    public static final int MIN_LENGTH = 8;
+    public static final int MAX_LENGTH = 64;
+
+    private static final Pattern UPPERCASE = Pattern.compile("[A-Z]");
+    private static final Pattern LOWERCASE = Pattern.compile("[a-z]");
+    private static final Pattern DIGIT     = Pattern.compile("[0-9]");
+    private static final Pattern SPECIAL   = Pattern.compile("[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?]");
+
+    public enum Strength { WEAK, MODERATE, STRONG, VERY_STRONG }
+
+    public static class ValidationResult {
+        private final boolean valid;
+        private final List<String> errors;
+        private final Strength strength;
+        ValidationResult(boolean valid, List<String> errors, Strength strength) {
+            this.valid = valid; this.errors = errors; this.strength = strength;
+        }
+        public boolean isValid() { return valid; }
+        public List<String> getErrors() { return errors; }
+        public Strength getStrength() { return strength; }
+    }
+
+    public ValidationResult validate(String password) {
+        List<String> errors = new ArrayList<>();
+        if (password == null) {
+            errors.add("Password cannot be null");
+            return new ValidationResult(false, errors, Strength.WEAK);
+        }
+        if (password.length() < MIN_LENGTH) errors.add("Must be at least " + MIN_LENGTH + " characters");
+        if (password.length() > MAX_LENGTH) errors.add("Must not exceed " + MAX_LENGTH + " characters");
+        if (!UPPERCASE.matcher(password).find()) errors.add("Must contain at least one uppercase letter");
+        if (!LOWERCASE.matcher(password).find()) errors.add("Must contain at least one lowercase letter");
+        if (!DIGIT.matcher(password).find()) errors.add("Must contain at least one digit");
+        if (!SPECIAL.matcher(password).find()) errors.add("Must contain at least one special character");
+        boolean valid = errors.isEmpty();
+        Strength strength = valid ? calculateStrength(password) : Strength.WEAK;
+        return new ValidationResult(valid, errors, strength);
+    }
+
+    private Strength calculateStrength(String password) {
+        int score = 0;
+        if (password.length() >= 12) score++;
+        if (password.length() >= 16) score++;
+        if (SPECIAL.matcher(password).results().count() >= 2) score++;
+        if (DIGIT.matcher(password).results().count() >= 2) score++;
+        return switch (score) {
+            case 0 -> Strength.MODERATE;
+            case 1, 2 -> Strength.STRONG;
+            default -> Strength.VERY_STRONG;
+        };
+    }
+
+    public boolean isCommonPassword(String password) {
+        if (password == null) return false;
+        return List.of("Password1!", "Admin123!", "Welcome1!", "Summer2024!", "Qwerty123!").contains(password);
+    }
+
+    public static String maskPassword(String password) {
+        if (password == null) return null;
+        if (password.length() <= 2) return "*".repeat(password.length());
+        return password.charAt(0) + "*".repeat(password.length() - 2) + password.charAt(password.length() - 1);
+    }
+}`,
+
+ShoppingCart03:`package io.council;
+
+import java.util.*;
+
+public class ShoppingCart03 {
+
+    public static class Item {
+        private final String id;
+        private final String name;
+        private final double unitPrice;
+        private int quantity;
+
+        public Item(String id, String name, double unitPrice, int quantity) {
+            if (id == null || id.isBlank()) throw new IllegalArgumentException("Item ID required");
+            if (unitPrice < 0) throw new IllegalArgumentException("Price cannot be negative");
+            if (quantity < 1) throw new IllegalArgumentException("Quantity must be at least 1");
+            this.id = id; this.name = name; this.unitPrice = unitPrice; this.quantity = quantity;
+        }
+        public String getId() { return id; }
+        public String getName() { return name; }
+        public double getUnitPrice() { return unitPrice; }
+        public int getQuantity() { return quantity; }
+        public double getSubtotal() { return unitPrice * quantity; }
+        public void setQuantity(int q) {
+            if (q < 1) throw new IllegalArgumentException("Quantity must be at least 1");
+            this.quantity = q;
+        }
+    }
+
+    private final Map<String, Item> items = new LinkedHashMap<>();
+    private String couponCode;
+    private double flatDiscount;
+
+    public void addItem(Item item) {
+        if (item == null) throw new IllegalArgumentException("Item cannot be null");
+        if (items.containsKey(item.getId())) {
+            items.get(item.getId()).setQuantity(items.get(item.getId()).getQuantity() + item.getQuantity());
+        } else items.put(item.getId(), item);
+    }
+    public void removeItem(String itemId) {
+        if (!items.containsKey(itemId)) throw new NoSuchElementException("Item not in cart: " + itemId);
+        items.remove(itemId);
+    }
+    public void updateQuantity(String itemId, int newQuantity) {
+        if (!items.containsKey(itemId)) throw new NoSuchElementException("Item not in cart: " + itemId);
+        items.get(itemId).setQuantity(newQuantity);
+    }
+    public void applyCoupon(String code, double discountAmount) {
+        if (code == null || code.isBlank()) throw new IllegalArgumentException("Invalid coupon");
+        if (discountAmount <= 0) throw new IllegalArgumentException("Discount must be positive");
+        this.couponCode = code; this.flatDiscount = discountAmount;
+    }
+    public void removeCoupon() { this.couponCode = null; this.flatDiscount = 0; }
+    public double getSubtotal() { return items.values().stream().mapToDouble(Item::getSubtotal).sum(); }
+    public double getDiscount() { return couponCode != null ? Math.min(flatDiscount, getSubtotal()) : 0; }
+    public double getTax(double taxRate) {
+        if (taxRate < 0) throw new IllegalArgumentException("Tax rate cannot be negative");
+        return (getSubtotal() - getDiscount()) * taxRate;
+    }
+    public double getTotal(double taxRate) { return getSubtotal() - getDiscount() + getTax(taxRate); }
+    public int getTotalItems() { return items.values().stream().mapToInt(Item::getQuantity).sum(); }
+    public boolean isEmpty() { return items.isEmpty(); }
+    public void clear() { items.clear(); removeCoupon(); }
+    public Collection<Item> getItems() { return Collections.unmodifiableCollection(items.values()); }
+    public String getCouponCode() { return couponCode; }
+    public Optional<Item> getMostExpensiveItem() {
+        return items.values().stream().max(Comparator.comparingDouble(Item::getUnitPrice));
+    }
+}`,
+
+BinarySearchTree04:`package io.council;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class BinarySearchTree04 {
+
+    private static class Node { int value; Node left, right; Node(int v) { value = v; } }
+
+    private Node root;
+    private int size;
+
+    public void insert(int value) { root = insertRec(root, value); }
+    private Node insertRec(Node n, int v) {
+        if (n == null) { size++; return new Node(v); }
+        if (v < n.value) n.left = insertRec(n.left, v);
+        else if (v > n.value) n.right = insertRec(n.right, v);
+        return n;
+    }
+    public boolean contains(int value) { return containsRec(root, value); }
+    private boolean containsRec(Node n, int v) {
+        if (n == null) return false;
+        if (v == n.value) return true;
+        return v < n.value ? containsRec(n.left, v) : containsRec(n.right, v);
+    }
+    public void delete(int value) {
+        if (!contains(value)) throw new IllegalArgumentException("Value not found: " + value);
+        root = deleteRec(root, value); size--;
+    }
+    private Node deleteRec(Node n, int v) {
+        if (n == null) return null;
+        if (v < n.value) n.left = deleteRec(n.left, v);
+        else if (v > n.value) n.right = deleteRec(n.right, v);
+        else {
+            if (n.left == null) return n.right;
+            if (n.right == null) return n.left;
+            int min = findMin(n.right); n.value = min; n.right = deleteRec(n.right, min);
+        }
+        return n;
+    }
+    public int findMin() { if (root == null) throw new IllegalStateException("Tree is empty"); return findMin(root); }
+    private int findMin(Node n) { return n.left == null ? n.value : findMin(n.left); }
+    public int findMax() { if (root == null) throw new IllegalStateException("Tree is empty"); return findMax(root); }
+    private int findMax(Node n) { return n.right == null ? n.value : findMax(n.right); }
+    public int height() { return heightRec(root); }
+    private int heightRec(Node n) { return n == null ? 0 : 1 + Math.max(heightRec(n.left), heightRec(n.right)); }
+    public List<Integer> inorder() { List<Integer> r = new ArrayList<>(); inorderRec(root, r); return r; }
+    private void inorderRec(Node n, List<Integer> r) { if (n == null) return; inorderRec(n.left, r); r.add(n.value); inorderRec(n.right, r); }
+    public List<Integer> levelOrder() {
+        List<Integer> r = new ArrayList<>();
+        if (root == null) return r;
+        java.util.Queue<Node> q = new java.util.LinkedList<>(); q.add(root);
+        while (!q.isEmpty()) { Node c = q.poll(); r.add(c.value); if (c.left != null) q.add(c.left); if (c.right != null) q.add(c.right); }
+        return r;
+    }
+    public boolean isBST() { return isBSTRec(root, Integer.MIN_VALUE, Integer.MAX_VALUE); }
+    private boolean isBSTRec(Node n, int min, int max) {
+        if (n == null) return true;
+        if (n.value <= min || n.value >= max) return false;
+        return isBSTRec(n.left, min, n.value) && isBSTRec(n.right, n.value, max);
+    }
+    public int getSize() { return size; }
+    public boolean isEmpty() { return size == 0; }
+}`,
+
+SortingAlgorithms05:`package io.council;
+
+import java.util.Arrays;
+
+public class SortingAlgorithms05 {
+
+    public static int[] bubbleSort(int[] arr) {
+        if (arr == null) throw new IllegalArgumentException("Array cannot be null");
+        int[] a = Arrays.copyOf(arr, arr.length);
+        for (int i = 0; i < a.length - 1; i++) {
+            boolean swapped = false;
+            for (int j = 0; j < a.length - 1 - i; j++) {
+                if (a[j] > a[j + 1]) { int t = a[j]; a[j] = a[j+1]; a[j+1] = t; swapped = true; }
+            }
+            if (!swapped) break;
+        }
+        return a;
+    }
+    public static int[] mergeSort(int[] arr) {
+        if (arr == null) throw new IllegalArgumentException("Array cannot be null");
+        int[] a = Arrays.copyOf(arr, arr.length);
+        if (a.length <= 1) return a;
+        mergeSortRec(a, 0, a.length - 1); return a;
+    }
+    private static void mergeSortRec(int[] a, int l, int r) {
+        if (l >= r) return;
+        int m = (l + r) / 2; mergeSortRec(a, l, m); mergeSortRec(a, m+1, r); merge(a, l, m, r);
+    }
+    private static void merge(int[] a, int l, int m, int r) {
+        int[] t = Arrays.copyOfRange(a, l, r+1);
+        int i = 0, j = m-l+1, k = l;
+        while (i <= m-l && j <= r-l) { if (t[i] <= t[j]) a[k++] = t[i++]; else a[k++] = t[j++]; }
+        while (i <= m-l) a[k++] = t[i++];
+        while (j <= r-l) a[k++] = t[j++];
+    }
+    public static int[] quickSort(int[] arr) {
+        if (arr == null) throw new IllegalArgumentException("Array cannot be null");
+        int[] a = Arrays.copyOf(arr, arr.length); quickSortRec(a, 0, a.length-1); return a;
+    }
+    private static void quickSortRec(int[] a, int l, int h) {
+        if (l >= h) return; int p = partition(a, l, h); quickSortRec(a, l, p-1); quickSortRec(a, p+1, h);
+    }
+    private static int partition(int[] a, int l, int h) {
+        int pivot = a[h], i = l-1;
+        for (int j = l; j < h; j++) if (a[j] <= pivot) { i++; int t = a[i]; a[i] = a[j]; a[j] = t; }
+        int t = a[i+1]; a[i+1] = a[h]; a[h] = t; return i+1;
+    }
+    public static int binarySearch(int[] arr, int target) {
+        if (arr == null) throw new IllegalArgumentException("Array cannot be null");
+        int l = 0, h = arr.length-1;
+        while (l <= h) { int m = (l+h)/2; if (arr[m] == target) return m; if (arr[m] < target) l = m+1; else h = m-1; }
+        return -1;
+    }
+    public static int findKthLargest(int[] arr, int k) {
+        if (arr == null || arr.length == 0) throw new IllegalArgumentException("Array cannot be null or empty");
+        if (k < 1 || k > arr.length) throw new IllegalArgumentException("k out of range");
+        int[] s = mergeSort(arr); return s[s.length-k];
+    }
+    public static boolean isSorted(int[] arr) {
+        if (arr == null) throw new IllegalArgumentException("Array cannot be null");
+        for (int i = 0; i < arr.length-1; i++) if (arr[i] > arr[i+1]) return false;
+        return true;
+    }
+    public static int[] removeDuplicates(int[] a) {
+        if (a == null) throw new IllegalArgumentException("Array cannot be null");
+        if (a.length == 0) return new int[0];
+        int[] t = new int[a.length]; int c = 0; t[c++] = a[0];
+        for (int i = 1; i < a.length; i++) if (a[i] != a[i-1]) t[c++] = a[i];
+        return Arrays.copyOf(t, c);
+    }
+}`,
+
+Employee06:`package io.council;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+public class Employee06 {
+
+    public enum Department { ENGINEERING, SALES, HR, FINANCE, MARKETING }
+    public enum Level { JUNIOR, MID, SENIOR, LEAD, MANAGER }
+
+    private final String employeeId;
+    private final String name;
+    private Department department;
+    private Level level;
+    private double baseSalary;
+    private final List<Double> bonuses;
+    private boolean active;
+    private int yearsOfService;
+
+    public Employee06(String employeeId, String name, Department department, Level level, double baseSalary) {
+        if (employeeId == null || employeeId.isBlank()) throw new IllegalArgumentException("Employee ID required");
+        if (name == null || name.isBlank()) throw new IllegalArgumentException("Name required");
+        if (department == null) throw new IllegalArgumentException("Department required");
+        if (level == null) throw new IllegalArgumentException("Level required");
+        if (baseSalary < 0) throw new IllegalArgumentException("Salary cannot be negative");
+        this.employeeId = employeeId;
+        this.name = name;
+        this.department = department;
+        this.level = level;
+        this.baseSalary = baseSalary;
+        this.bonuses = new ArrayList<>();
+        this.active = true;
+        this.yearsOfService = 0;
+    }
+
+    public void addBonus(double amount) {
+        if (!active) throw new IllegalStateException("Inactive employee");
+        if (amount <= 0) throw new IllegalArgumentException("Bonus must be positive");
+        bonuses.add(amount);
+    }
+
+    public double totalCompensation() {
+        double bonusSum = bonuses.stream().mapToDouble(Double::doubleValue).sum();
+        return baseSalary + bonusSum;
+    }
+
+    public void promote(Level newLevel) {
+        if (!active) throw new IllegalStateException("Inactive employee");
+        if (newLevel == null) throw new IllegalArgumentException("Level required");
+        if (newLevel.ordinal() <= level.ordinal()) throw new IllegalArgumentException("Promotion must be to higher level");
+        this.level = newLevel;
+        this.baseSalary *= 1.10;
+    }
+
+    public void transfer(Department newDept) {
+        if (!active) throw new IllegalStateException("Inactive employee");
+        if (newDept == null) throw new IllegalArgumentException("Department required");
+        if (newDept == this.department) throw new IllegalArgumentException("Already in that department");
+        this.department = newDept;
+    }
+
+    public void incrementYears() {
+        if (!active) throw new IllegalStateException("Inactive employee");
+        this.yearsOfService++;
+    }
+
+    public void deactivate() { this.active = false; }
+
+    public double calculateAnnualRaise() {
+        if (!active) return 0;
+        double rate = switch (level) {
+            case JUNIOR -> 0.05;
+            case MID -> 0.06;
+            case SENIOR -> 0.07;
+            case LEAD -> 0.08;
+            case MANAGER -> 0.10;
+        };
+        if (yearsOfService >= 5) rate += 0.02;
+        return baseSalary * rate;
+    }
+
+    public boolean isEligibleForBonus() {
+        return active && yearsOfService >= 1 && level != Level.JUNIOR;
+    }
+
+    public String getEmployeeId() { return employeeId; }
+    public String getName() { return name; }
+    public Department getDepartment() { return department; }
+    public Level getLevel() { return level; }
+    public double getBaseSalary() { return baseSalary; }
+    public List<Double> getBonuses() { return Collections.unmodifiableList(bonuses); }
+    public boolean isActive() { return active; }
+    public int getYearsOfService() { return yearsOfService; }
+}`,
+
+Employee07:`package io.council;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class Employee07 {
+
+    public enum Department { ENGINEERING, MARKETING, SALES, HR, FINANCE }
+    public enum Role { JUNIOR, MID, SENIOR, LEAD, MANAGER, DIRECTOR }
+
+    private String id;
+    private String name;
+    private Department department;
+    private Role role;
+    private double baseSalary;
+    private double bonusPercent;
+    private int yearsOfExperience;
+    private boolean active;
+    private List<String> promotionHistory;
+
+    public Employee07(String id, String name, Department department, Role role, double baseSalary) {
+        if (id == null || id.isBlank()) throw new IllegalArgumentException("Employee ID cannot be blank");
+        if (name == null || name.isBlank()) throw new IllegalArgumentException("Name cannot be blank");
+        if (baseSalary < 0) throw new IllegalArgumentException("Salary cannot be negative");
+        this.id = id;
+        this.name = name;
+        this.department = department;
+        this.role = role;
+        this.baseSalary = baseSalary;
+        this.bonusPercent = 0.0;
+        this.yearsOfExperience = 0;
+        this.active = true;
+        this.promotionHistory = new ArrayList<>();
+    }
+
+    public double calculateTotalCompensation() {
+        return baseSalary + (baseSalary * bonusPercent / 100.0);
+    }
+
+    public double calculateMonthlyPay() {
+        return calculateTotalCompensation() / 12.0;
+    }
+
+    public boolean promote(Role newRole) {
+        if (!active) return false;
+        if (newRole.ordinal() <= role.ordinal()) return false;
+        promotionHistory.add(role + " -> " + newRole);
+        this.role = newRole;
+        this.baseSalary *= 1.10;
+        return true;
+    }
+
+    public boolean transferTo(Department newDepartment) {
+        if (!active) return false;
+        if (newDepartment == this.department) return false;
+        this.department = newDepartment;
+        return true;
+    }
+
+    public void applyRaise(double percentIncrease) {
+        if (!active) throw new IllegalStateException("Cannot apply raise to inactive employee");
+        if (percentIncrease < 0) throw new IllegalArgumentException("Raise percent cannot be negative");
+        this.baseSalary += this.baseSalary * percentIncrease / 100.0;
+    }
+
+    public void setBonus(double percent) {
+        if (percent < 0) throw new IllegalArgumentException("Bonus percent cannot be negative");
+        if (percent > 100) throw new IllegalArgumentException("Bonus percent cannot exceed 100");
+        this.bonusPercent = percent;
+    }
+
+    public void terminate() {
+        this.active = false;
+        this.bonusPercent = 0.0;
+    }
+
+    public void rehire() {
+        this.active = true;
+    }
+
+    public boolean isEligibleForPromotion() {
+        return active && yearsOfExperience >= 2 && role != Role.DIRECTOR;
+    }
+
+    public boolean isManager() {
+        return role == Role.MANAGER || role == Role.DIRECTOR;
+    }
+
+    public void incrementExperience() {
+        this.yearsOfExperience++;
+    }
+
+    public String getId() { return id; }
+    public String getName() { return name; }
+    public Department getDepartment() { return department; }
+    public Role getRole() { return role; }
+    public double getBaseSalary() { return baseSalary; }
+    public double getBonusPercent() { return bonusPercent; }
+    public int getYearsOfExperience() { return yearsOfExperience; }
+    public boolean isActive() { return active; }
+    public List<String> getPromotionHistory() { return new ArrayList<>(promotionHistory); }
+
+    @Override
+    public String toString() {
+        return String.format("Employee07[%s, %s, %s, %s, salary=%.2f, active=%s]",
+                id, name, department, role, baseSalary, active);
+    }
+}`,
+
+LibraryBook08:`package io.council;
+
+import java.time.LocalDate;
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+public class LibraryBook08 {
+
+    public enum Status { AVAILABLE, BORROWED, RESERVED, LOST, MAINTENANCE }
+
+    private final String isbn;
+    private final String title;
+    private final String author;
+    private Status status;
+    private String currentBorrowerId;
+    private LocalDate dueDate;
+    private int totalBorrows;
+    private final Deque<String> reservationQueue;
+    private static final int LOAN_DAYS = 14;
+    private static final double DAILY_FINE = 0.25;
+
+    public LibraryBook08(String isbn, String title, String author) {
+        if (isbn == null || isbn.isBlank()) throw new IllegalArgumentException("ISBN cannot be blank");
+        if (title == null || title.isBlank()) throw new IllegalArgumentException("Title cannot be blank");
+        if (author == null || author.isBlank()) throw new IllegalArgumentException("Author cannot be blank");
+        this.isbn = isbn;
+        this.title = title;
+        this.author = author;
+        this.status = Status.AVAILABLE;
+        this.totalBorrows = 0;
+        this.reservationQueue = new ArrayDeque<>();
+    }
+
+    public boolean checkOut(String borrowerId) {
+        if (borrowerId == null || borrowerId.isBlank()) throw new IllegalArgumentException("Borrower ID required");
+        if (status != Status.AVAILABLE) return false;
+        if (!reservationQueue.isEmpty() && !reservationQueue.peek().equals(borrowerId)) return false;
+        if (!reservationQueue.isEmpty()) reservationQueue.poll();
+        this.currentBorrowerId = borrowerId;
+        this.dueDate = LocalDate.now().plusDays(LOAN_DAYS);
+        this.status = Status.BORROWED;
+        this.totalBorrows++;
+        return true;
+    }
+
+    public boolean returnBook() {
+        if (status != Status.BORROWED) return false;
+        this.currentBorrowerId = null;
+        this.dueDate = null;
+        this.status = reservationQueue.isEmpty() ? Status.AVAILABLE : Status.RESERVED;
+        return true;
+    }
+
+    public boolean reserve(String patronId) {
+        if (patronId == null || patronId.isBlank()) throw new IllegalArgumentException("Patron ID required");
+        if (status == Status.LOST || status == Status.MAINTENANCE) return false;
+        if (patronId.equals(currentBorrowerId)) return false;
+        if (reservationQueue.contains(patronId)) return false;
+        reservationQueue.add(patronId);
+        if (status == Status.AVAILABLE) status = Status.RESERVED;
+        return true;
+    }
+
+    public boolean cancelReservation(String patronId) {
+        boolean removed = reservationQueue.remove(patronId);
+        if (removed && reservationQueue.isEmpty() && status == Status.RESERVED) {
+            status = Status.AVAILABLE;
+        }
+        return removed;
+    }
+
+    public double calculateFine(LocalDate returnDate) {
+        if (dueDate == null || returnDate == null) return 0.0;
+        long overdueDays = returnDate.toEpochDay() - dueDate.toEpochDay();
+        return overdueDays > 0 ? overdueDays * DAILY_FINE : 0.0;
+    }
+
+    public boolean isOverdue() {
+        return status == Status.BORROWED && dueDate != null && LocalDate.now().isAfter(dueDate);
+    }
+
+    public void markLost() {
+        this.status = Status.LOST;
+        this.currentBorrowerId = null;
+        this.dueDate = null;
+    }
+
+    public void sendToMaintenance() {
+        if (status == Status.BORROWED) throw new IllegalStateException("Cannot send borrowed book to maintenance");
+        this.status = Status.MAINTENANCE;
+    }
+
+    public void returnFromMaintenance() {
+        if (status != Status.MAINTENANCE) throw new IllegalStateException("Book is not in maintenance");
+        this.status = reservationQueue.isEmpty() ? Status.AVAILABLE : Status.RESERVED;
+    }
+
+    public int getQueueSize() { return reservationQueue.size(); }
+    public String getIsbn() { return isbn; }
+    public String getTitle() { return title; }
+    public String getAuthor() { return author; }
+    public Status getStatus() { return status; }
+    public String getCurrentBorrowerId() { return currentBorrowerId; }
+    public LocalDate getDueDate() { return dueDate; }
+    public int getTotalBorrows() { return totalBorrows; }
+
+    @Override
+    public String toString() {
+        return String.format("LibraryBook08[%s, '%s' by %s, status=%s]", isbn, title, author, status);
+    }
+}`,
+
+HotelReservation09:`package io.council;
+
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+
+public class HotelReservation09 {
+
+    public enum RoomType { STANDARD, DELUXE, SUITE, PENTHOUSE }
+    public enum Status { PENDING, CONFIRMED, CHECKED_IN, CHECKED_OUT, CANCELLED }
+
+    private final String reservationId;
+    private final String guestName;
+    private final RoomType roomType;
+    private LocalDate checkInDate;
+    private LocalDate checkOutDate;
+    private Status status;
+    private int numberOfGuests;
+    private boolean breakfastIncluded;
+    private double totalPrice;
+    private double depositPaid;
+
+    private static final double[] BASE_RATES = { 80.0, 130.0, 220.0, 400.0 };
+    private static final double BREAKFAST_RATE = 15.0;
+    private static final double CANCELLATION_FEE_PERCENT = 20.0;
+
+    public HotelReservation09(String reservationId, String guestName, RoomType roomType,
+                               LocalDate checkIn, LocalDate checkOut, int numberOfGuests) {
+        if (reservationId == null || reservationId.isBlank())
+            throw new IllegalArgumentException("Reservation ID required");
+        if (guestName == null || guestName.isBlank())
+            throw new IllegalArgumentException("Guest name required");
+        if (checkIn == null || checkOut == null)
+            throw new IllegalArgumentException("Dates cannot be null");
+        if (!checkOut.isAfter(checkIn))
+            throw new IllegalArgumentException("Check-out must be after check-in");
+        if (numberOfGuests < 1)
+            throw new IllegalArgumentException("At least one guest required");
+
+        this.reservationId = reservationId;
+        this.guestName = guestName;
+        this.roomType = roomType;
+        this.checkInDate = checkIn;
+        this.checkOutDate = checkOut;
+        this.numberOfGuests = numberOfGuests;
+        this.status = Status.PENDING;
+        this.breakfastIncluded = false;
+        this.depositPaid = 0.0;
+        this.totalPrice = calculatePrice();
+    }
+
+    private double calculatePrice() {
+        long nights = ChronoUnit.DAYS.between(checkInDate, checkOutDate);
+        double rate = BASE_RATES[roomType.ordinal()];
+        double price = nights * rate;
+        if (breakfastIncluded) price += nights * numberOfGuests * BREAKFAST_RATE;
+        return price;
+    }
+
+    public void confirm() {
+        if (status != Status.PENDING) throw new IllegalStateException("Only pending reservations can be confirmed");
+        status = Status.CONFIRMED;
+    }
+
+    public void checkIn() {
+        if (status != Status.CONFIRMED) throw new IllegalStateException("Reservation must be confirmed before check-in");
+        if (LocalDate.now().isBefore(checkInDate))
+            throw new IllegalStateException("Cannot check in before check-in date");
+        status = Status.CHECKED_IN;
+    }
+
+    public void checkOut() {
+        if (status != Status.CHECKED_IN) throw new IllegalStateException("Guest must be checked in to check out");
+        status = Status.CHECKED_OUT;
+    }
+
+    public double cancel() {
+        if (status == Status.CHECKED_IN || status == Status.CHECKED_OUT)
+            throw new IllegalStateException("Cannot cancel after check-in");
+        if (status == Status.CANCELLED) return 0.0;
+        status = Status.CANCELLED;
+        double fee = totalPrice * CANCELLATION_FEE_PERCENT / 100.0;
+        double refund = depositPaid - fee;
+        return Math.max(0.0, refund);
+    }
+
+    public void addBreakfast() {
+        if (status == Status.CHECKED_OUT || status == Status.CANCELLED)
+            throw new IllegalStateException("Cannot modify completed or cancelled reservation");
+        this.breakfastIncluded = true;
+        this.totalPrice = calculatePrice();
+    }
+
+    public void removeBreakfast() {
+        if (status == Status.CHECKED_OUT || status == Status.CANCELLED)
+            throw new IllegalStateException("Cannot modify completed or cancelled reservation");
+        this.breakfastIncluded = false;
+        this.totalPrice = calculatePrice();
+    }
+
+    public void payDeposit(double amount) {
+        if (amount <= 0) throw new IllegalArgumentException("Deposit amount must be positive");
+        if (status == Status.CANCELLED || status == Status.CHECKED_OUT)
+            throw new IllegalStateException("Cannot pay deposit on cancelled or completed reservation");
+        this.depositPaid += amount;
+    }
+
+    public double getRemainingBalance() {
+        return Math.max(0.0, totalPrice - depositPaid);
+    }
+
+    public long getNights() {
+        return ChronoUnit.DAYS.between(checkInDate, checkOutDate);
+    }
+
+    public boolean extendStay(LocalDate newCheckOut) {
+        if (status != Status.CHECKED_IN) return false;
+        if (!newCheckOut.isAfter(checkOutDate)) return false;
+        this.checkOutDate = newCheckOut;
+        this.totalPrice = calculatePrice();
+        return true;
+    }
+
+    public String getReservationId() { return reservationId; }
+    public String getGuestName() { return guestName; }
+    public RoomType getRoomType() { return roomType; }
+    public LocalDate getCheckInDate() { return checkInDate; }
+    public LocalDate getCheckOutDate() { return checkOutDate; }
+    public Status getStatus() { return status; }
+    public int getNumberOfGuests() { return numberOfGuests; }
+    public boolean isBreakfastIncluded() { return breakfastIncluded; }
+    public double getTotalPrice() { return totalPrice; }
+    public double getDepositPaid() { return depositPaid; }
+
+    @Override
+    public String toString() {
+        return String.format("HotelReservation09[%s, %s, %s, %s to %s, status=%s, total=%.2f]",
+                reservationId, guestName, roomType, checkInDate, checkOutDate, status, totalPrice);
+    }
+}`,
+
+Order10:`package io.council;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+public class Order10 {
+
+    public enum Status { PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED, REFUNDED }
+
+    public static class LineItem {
+        private final String productId;
+        private final String productName;
+        private int quantity;
+        private final double unitPrice;
+
+        public LineItem(String productId, String productName, int quantity, double unitPrice) {
+            if (quantity < 1) throw new IllegalArgumentException("Quantity must be at least 1");
+            if (unitPrice < 0) throw new IllegalArgumentException("Unit price cannot be negative");
+            this.productId = productId;
+            this.productName = productName;
+            this.quantity = quantity;
+            this.unitPrice = unitPrice;
+        }
+
+        public double getSubtotal() { return quantity * unitPrice; }
+        public String getProductId() { return productId; }
+        public String getProductName() { return productName; }
+        public int getQuantity() { return quantity; }
+        public double getUnitPrice() { return unitPrice; }
+
+        @Override
+        public String toString() {
+            return String.format("%s x%d @ %.2f", productName, quantity, unitPrice);
+        }
+    }
+
+    private final String orderId;
+    private final String customerId;
+    private final List<LineItem> items;
+    private Status status;
+    private double discountPercent;
+    private double taxRate;
+    private String trackingNumber;
+
+    public Order10(String orderId, String customerId) {
+        if (orderId == null || orderId.isBlank()) throw new IllegalArgumentException("Order ID required");
+        if (customerId == null || customerId.isBlank()) throw new IllegalArgumentException("Customer ID required");
+        this.orderId = orderId;
+        this.customerId = customerId;
+        this.items = new ArrayList<>();
+        this.status = Status.PENDING;
+        this.discountPercent = 0.0;
+        this.taxRate = 0.0;
+    }
+
+    public void addItem(String productId, String productName, int quantity, double unitPrice) {
+        if (status != Status.PENDING) throw new IllegalStateException("Cannot modify order after confirmation");
+        for (LineItem item : items) {
+            if (item.getProductId().equals(productId)) {
+                item.quantity += quantity;
+                return;
+            }
+        }
+        items.add(new LineItem(productId, productName, quantity, unitPrice));
+    }
+
+    public boolean removeItem(String productId) {
+        if (status != Status.PENDING) throw new IllegalStateException("Cannot modify order after confirmation");
+        return items.removeIf(item -> item.getProductId().equals(productId));
+    }
+
+    public double getSubtotal() {
+        return items.stream().mapToDouble(LineItem::getSubtotal).sum();
+    }
+
+    public double getDiscountAmount() {
+        return getSubtotal() * discountPercent / 100.0;
+    }
+
+    public double getTaxAmount() {
+        double afterDiscount = getSubtotal() - getDiscountAmount();
+        return afterDiscount * taxRate / 100.0;
+    }
+
+    public double getTotal() {
+        return getSubtotal() - getDiscountAmount() + getTaxAmount();
+    }
+
+    public void applyDiscount(double percent) {
+        if (percent < 0 || percent > 100) throw new IllegalArgumentException("Discount must be 0-100");
+        if (status != Status.PENDING && status != Status.CONFIRMED)
+            throw new IllegalStateException("Cannot apply discount to order in state: " + status);
+        this.discountPercent = percent;
+    }
+
+    public void setTaxRate(double rate) {
+        if (rate < 0) throw new IllegalArgumentException("Tax rate cannot be negative");
+        this.taxRate = rate;
+    }
+
+    public void confirm() {
+        if (status != Status.PENDING) throw new IllegalStateException("Order must be pending to confirm");
+        if (items.isEmpty()) throw new IllegalStateException("Cannot confirm empty order");
+        status = Status.CONFIRMED;
+    }
+
+    public void process() {
+        if (status != Status.CONFIRMED) throw new IllegalStateException("Order must be confirmed to process");
+        status = Status.PROCESSING;
+    }
+
+    public void ship(String trackingNumber) {
+        if (status != Status.PROCESSING) throw new IllegalStateException("Order must be processing to ship");
+        if (trackingNumber == null || trackingNumber.isBlank())
+            throw new IllegalArgumentException("Tracking number required");
+        this.trackingNumber = trackingNumber;
+        status = Status.SHIPPED;
+    }
+
+    public void deliver() {
+        if (status != Status.SHIPPED) throw new IllegalStateException("Order must be shipped to deliver");
+        status = Status.DELIVERED;
+    }
+
+    public void cancel() {
+        if (status == Status.SHIPPED || status == Status.DELIVERED)
+            throw new IllegalStateException("Cannot cancel shipped or delivered order");
+        if (status == Status.CANCELLED) throw new IllegalStateException("Order already cancelled");
+        status = Status.CANCELLED;
+    }
+
+    public void refund() {
+        if (status != Status.DELIVERED) throw new IllegalStateException("Can only refund delivered orders");
+        status = Status.REFUNDED;
+    }
+
+    public boolean isCancellable() {
+        return status == Status.PENDING || status == Status.CONFIRMED || status == Status.PROCESSING;
+    }
+
+    public String getOrderId() { return orderId; }
+    public String getCustomerId() { return customerId; }
+    public List<LineItem> getItems() { return Collections.unmodifiableList(items); }
+    public Status getStatus() { return status; }
+    public double getDiscountPercent() { return discountPercent; }
+    public double getTaxRate() { return taxRate; }
+    public String getTrackingNumber() { return trackingNumber; }
+    public int getItemCount() { return items.size(); }
+
+    @Override
+    public String toString() {
+        return String.format("Order10[%s, customer=%s, items=%d, total=%.2f, status=%s]",
+                orderId, customerId, items.size(), getTotal(), status);
+    }
+}`,
+
+EmailValidator11:`package io.council;
+
+public class EmailValidator11 {
+
+    private static final int MAX_LOCAL_LENGTH = 64;
+    private static final int MAX_DOMAIN_LENGTH = 255;
+    private static final int MAX_TOTAL_LENGTH = 320;
+
+    private EmailValidator11() {}
+
+    public static boolean isValid(String email) {
+        if (email == null || email.isBlank()) return false;
+        if (email.length() > MAX_TOTAL_LENGTH) return false;
+
+        int atIndex = email.lastIndexOf('@');
+        if (atIndex < 1) return false;
+        if (atIndex == email.length() - 1) return false;
+
+        String local = email.substring(0, atIndex);
+        String domain = email.substring(atIndex + 1);
+
+        return isValidLocal(local) && isValidDomain(domain);
+    }
+
+    private static boolean isValidLocal(String local) {
+        if (local.isEmpty() || local.length() > MAX_LOCAL_LENGTH) return false;
+        if (local.startsWith(".") || local.endsWith(".")) return false;
+        if (local.contains("..")) return false;
+
+        for (char c : local.toCharArray()) {
+            if (!isAllowedLocalChar(c)) return false;
+        }
+        return true;
+    }
+
+    private static boolean isValidDomain(String domain) {
+        if (domain.isEmpty() || domain.length() > MAX_DOMAIN_LENGTH) return false;
+        if (domain.startsWith(".") || domain.endsWith(".")) return false;
+        if (domain.startsWith("-")) return false;
+
+        String[] labels = domain.split("\\\\.", -1);
+        if (labels.length < 2) return false;
+
+        String tld = labels[labels.length - 1];
+        if (tld.length() < 2) return false;
+
+        for (String label : labels) {
+            if (label.isEmpty()) return false;
+            if (label.length() > 63) return false;
+            if (label.startsWith("-") || label.endsWith("-")) return false;
+            for (char c : label.toCharArray()) {
+                if (!Character.isLetterOrDigit(c) && c != '-') return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isAllowedLocalChar(char c) {
+        return Character.isLetterOrDigit(c)
+                || c == '.' || c == '_' || c == '+' || c == '-'
+                || c == '!' || c == '#' || c == '$' || c == '%'
+                || c == '&' || c == '\\'' || c == '*' || c == '/'
+                || c == '=' || c == '?' || c == '^' || c == '\`'
+                || c == '{' || c == '|' || c == '}' || c == '~';
+    }
+
+    public static String extractDomain(String email) {
+        if (!isValid(email)) throw new IllegalArgumentException("Invalid email: " + email);
+        return email.substring(email.lastIndexOf('@') + 1).toLowerCase();
+    }
+
+    public static String normalizeEmail(String email) {
+        if (!isValid(email)) throw new IllegalArgumentException("Invalid email: " + email);
+        int atIndex = email.lastIndexOf('@');
+        String local = email.substring(0, atIndex);
+        String domain = email.substring(atIndex + 1).toLowerCase();
+        int plusIndex = local.indexOf('+');
+        if (plusIndex >= 0) local = local.substring(0, plusIndex);
+        return local.toLowerCase() + "@" + domain;
+    }
+
+    public static boolean isSameDomain(String email1, String email2) {
+        if (!isValid(email1) || !isValid(email2)) return false;
+        return extractDomain(email1).equalsIgnoreCase(extractDomain(email2));
+    }
+}`,
+
+CreditCardValidator12:`package io.council;
+
+public class CreditCardValidator12 {
+
+    public enum CardBrand { VISA, MASTERCARD, AMEX, DISCOVER, UNKNOWN }
+
+    private CreditCardValidator12() {}
+
+    public static boolean isValidLuhn(String number) {
+        if (number == null) return false;
+        String digits = number.replaceAll("\\\\s|-", "");
+        if (!digits.matches("\\\\d+")) return false;
+        if (digits.length() < 13 || digits.length() > 19) return false;
+
+        int sum = 0;
+        boolean doubleIt = false;
+        for (int i = digits.length() - 1; i >= 0; i--) {
+            int d = digits.charAt(i) - '0';
+            if (doubleIt) {
+                d *= 2;
+                if (d > 9) d -= 9;
+            }
+            sum += d;
+            doubleIt = !doubleIt;
+        }
+        return sum % 10 == 0;
+    }
+
+    public static CardBrand detectBrand(String number) {
+        if (number == null) return CardBrand.UNKNOWN;
+        String digits = number.replaceAll("\\\\s|-", "");
+        if (!digits.matches("\\\\d+")) return CardBrand.UNKNOWN;
+
+        if (digits.startsWith("4") && (digits.length() == 13 || digits.length() == 16)) {
+            return CardBrand.VISA;
+        }
+        if (digits.length() == 16) {
+            int prefix = Integer.parseInt(digits.substring(0, 4));
+            if (prefix >= 2221 && prefix <= 2720) return CardBrand.MASTERCARD;
+            if (prefix >= 5100 && prefix <= 5599) return CardBrand.MASTERCARD;
+            if (digits.startsWith("6011") || digits.startsWith("65")) return CardBrand.DISCOVER;
+        }
+        if (digits.length() == 15) {
+            String pre2 = digits.substring(0, 2);
+            if (pre2.equals("34") || pre2.equals("37")) return CardBrand.AMEX;
+        }
+        return CardBrand.UNKNOWN;
+    }
+
+    public static boolean isValid(String number) {
+        return isValidLuhn(number) && detectBrand(number) != CardBrand.UNKNOWN;
+    }
+
+    public static String mask(String number) {
+        if (number == null) throw new IllegalArgumentException("Card number cannot be null");
+        String digits = number.replaceAll("\\\\s|-", "");
+        if (digits.length() < 4) throw new IllegalArgumentException("Card number too short");
+        String masked = "*".repeat(digits.length() - 4) + digits.substring(digits.length() - 4);
+        return masked;
+    }
+
+    public static boolean isExpired(int expiryMonth, int expiryYear) {
+        if (expiryMonth < 1 || expiryMonth > 12)
+            throw new IllegalArgumentException("Month must be 1-12");
+        java.time.YearMonth expiry = java.time.YearMonth.of(expiryYear, expiryMonth);
+        return expiry.isBefore(java.time.YearMonth.now());
+    }
+
+    public static boolean isValidCvv(String cvv, CardBrand brand) {
+        if (cvv == null || !cvv.matches("\\\\d+")) return false;
+        if (brand == CardBrand.AMEX) return cvv.length() == 4;
+        return cvv.length() == 3;
+    }
+}`,
+
+DateRangeUtil13:`package io.council;
+
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+public class DateRangeUtil13 {
+
+    public static class DateRange {
+        public final LocalDate start;
+        public final LocalDate end;
+
+        public DateRange(LocalDate start, LocalDate end) {
+            if (start == null || end == null) throw new IllegalArgumentException("Dates cannot be null");
+            if (end.isBefore(start)) throw new IllegalArgumentException("End must not be before start");
+            this.start = start;
+            this.end = end;
+        }
+
+        public long lengthInDays() {
+            return ChronoUnit.DAYS.between(start, end) + 1;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof DateRange)) return false;
+            DateRange other = (DateRange) o;
+            return start.equals(other.start) && end.equals(other.end);
+        }
+
+        @Override
+        public int hashCode() { return Objects.hash(start, end); }
+
+        @Override
+        public String toString() { return "[" + start + ", " + end + "]"; }
+    }
+
+    private DateRangeUtil13() {}
+
+    public static boolean overlaps(DateRange a, DateRange b) {
+        return !a.end.isBefore(b.start) && !b.end.isBefore(a.start);
+    }
+
+    public static boolean contains(DateRange outer, DateRange inner) {
+        return !inner.start.isBefore(outer.start) && !inner.end.isAfter(outer.end);
+    }
+
+    public static boolean containsDate(DateRange range, LocalDate date) {
+        return !date.isBefore(range.start) && !date.isAfter(range.end);
+    }
+
+    public static DateRange intersection(DateRange a, DateRange b) {
+        if (!overlaps(a, b)) return null;
+        LocalDate start = a.start.isAfter(b.start) ? a.start : b.start;
+        LocalDate end = a.end.isBefore(b.end) ? a.end : b.end;
+        return new DateRange(start, end);
+    }
+
+    public static DateRange union(DateRange a, DateRange b) {
+        if (!overlaps(a, b) && !a.end.plusDays(1).equals(b.start) && !b.end.plusDays(1).equals(a.start)) {
+            throw new IllegalArgumentException("Ranges are not adjacent or overlapping");
+        }
+        LocalDate start = a.start.isBefore(b.start) ? a.start : b.start;
+        LocalDate end = a.end.isAfter(b.end) ? a.end : b.end;
+        return new DateRange(start, end);
+    }
+
+    public static List<DateRange> subtract(DateRange base, DateRange toRemove) {
+        List<DateRange> result = new ArrayList<>();
+        if (!overlaps(base, toRemove)) {
+            result.add(base);
+            return result;
+        }
+        if (base.start.isBefore(toRemove.start)) {
+            result.add(new DateRange(base.start, toRemove.start.minusDays(1)));
+        }
+        if (base.end.isAfter(toRemove.end)) {
+            result.add(new DateRange(toRemove.end.plusDays(1), base.end));
+        }
+        return result;
+    }
+
+    public static long countBusinessDays(DateRange range) {
+        long count = 0;
+        LocalDate current = range.start;
+        while (!current.isAfter(range.end)) {
+            DayOfWeek dow = current.getDayOfWeek();
+            if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY) count++;
+            current = current.plusDays(1);
+        }
+        return count;
+    }
+
+    public static LocalDate addBusinessDays(LocalDate start, int days) {
+        if (days < 0) throw new IllegalArgumentException("Days must be non-negative");
+        LocalDate current = start;
+        int added = 0;
+        while (added < days) {
+            current = current.plusDays(1);
+            DayOfWeek dow = current.getDayOfWeek();
+            if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY) added++;
+        }
+        return current;
+    }
+
+    public static List<DateRange> splitByMonth(DateRange range) {
+        List<DateRange> parts = new ArrayList<>();
+        LocalDate current = range.start;
+        while (!current.isAfter(range.end)) {
+            LocalDate monthEnd = current.withDayOfMonth(current.lengthOfMonth());
+            LocalDate partEnd = monthEnd.isBefore(range.end) ? monthEnd : range.end;
+            parts.add(new DateRange(current, partEnd));
+            current = partEnd.plusDays(1);
+        }
+        return parts;
+    }
+}`,
+
+InventoryManager14:`package io.council;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public class InventoryManager14 {
+
+    public static class Product {
+        private final String id;
+        private final String name;
+        private int stock;
+        private int reorderThreshold;
+        private int reorderQuantity;
+
+        public Product(String id, String name, int initialStock, int reorderThreshold, int reorderQuantity) {
+            if (id == null || id.isBlank()) throw new IllegalArgumentException("Product ID required");
+            if (initialStock < 0) throw new IllegalArgumentException("Stock cannot be negative");
+            if (reorderThreshold < 0) throw new IllegalArgumentException("Reorder threshold cannot be negative");
+            if (reorderQuantity < 1) throw new IllegalArgumentException("Reorder quantity must be positive");
+            this.id = id;
+            this.name = name;
+            this.stock = initialStock;
+            this.reorderThreshold = reorderThreshold;
+            this.reorderQuantity = reorderQuantity;
+        }
+
+        public boolean needsReorder() { return stock <= reorderThreshold; }
+        public String getId() { return id; }
+        public String getName() { return name; }
+        public int getStock() { return stock; }
+        public int getReorderThreshold() { return reorderThreshold; }
+        public int getReorderQuantity() { return reorderQuantity; }
+
+        @Override
+        public String toString() {
+            return String.format("Product[%s, %s, stock=%d]", id, name, stock);
+        }
+    }
+
+    private final Map<String, Product> catalog;
+
+    public InventoryManager14() {
+        this.catalog = new HashMap<>();
+    }
+
+    public void addProduct(Product product) {
+        if (product == null) throw new IllegalArgumentException("Product cannot be null");
+        catalog.put(product.getId(), product);
+    }
+
+    public void removeProduct(String productId) {
+        if (!catalog.containsKey(productId)) throw new IllegalArgumentException("Product not found: " + productId);
+        catalog.remove(productId);
+    }
+
+    public void restock(String productId, int quantity) {
+        if (quantity <= 0) throw new IllegalArgumentException("Restock quantity must be positive");
+        Product p = getOrThrow(productId);
+        p.stock += quantity;
+    }
+
+    public boolean fulfillOrder(String productId, int quantity) {
+        if (quantity <= 0) throw new IllegalArgumentException("Quantity must be positive");
+        Product p = getOrThrow(productId);
+        if (p.stock < quantity) return false;
+        p.stock -= quantity;
+        return true;
+    }
+
+    public boolean transfer(String fromProductId, String toProductId, int quantity) {
+        if (fromProductId.equals(toProductId)) throw new IllegalArgumentException("Cannot transfer to same product");
+        if (quantity <= 0) throw new IllegalArgumentException("Transfer quantity must be positive");
+        Product from = getOrThrow(fromProductId);
+        Product to = getOrThrow(toProductId);
+        if (from.stock < quantity) return false;
+        from.stock -= quantity;
+        to.stock += quantity;
+        return true;
+    }
+
+    public void adjustStock(String productId, int delta) {
+        Product p = getOrThrow(productId);
+        if (p.stock + delta < 0) throw new IllegalArgumentException("Adjustment would result in negative stock");
+        p.stock += delta;
+    }
+
+    public int getStock(String productId) {
+        return getOrThrow(productId).stock;
+    }
+
+    public boolean isLowStock(String productId) {
+        return getOrThrow(productId).needsReorder();
+    }
+
+    public Map<String, Integer> getLowStockProducts() {
+        Map<String, Integer> low = new HashMap<>();
+        for (Product p : catalog.values()) {
+            if (p.needsReorder()) low.put(p.getId(), p.stock);
+        }
+        return low;
+    }
+
+    public int getTotalStockValue(Map<String, Double> prices) {
+        int total = 0;
+        for (Product p : catalog.values()) {
+            Double price = prices.get(p.getId());
+            if (price != null) total += (int)(p.stock * price);
+        }
+        return total;
+    }
+
+    public int getProductCount() { return catalog.size(); }
+
+    private Product getOrThrow(String productId) {
+        Product p = catalog.get(productId);
+        if (p == null) throw new IllegalArgumentException("Product not found: " + productId);
+        return p;
+    }
+}`,
+
+RateLimiter15:`package io.council;
+
+import java.time.Instant;
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+public class RateLimiter15 {
+
+    public enum Strategy { SLIDING_WINDOW, TOKEN_BUCKET }
+
+    private final int maxRequests;
+    private final long windowMillis;
+    private final Strategy strategy;
+
+    private final Deque<Long> requestTimestamps;
+
+    private double tokens;
+    private long lastRefillTime;
+    private final double refillRate;
+
+    public RateLimiter15(int maxRequests, long windowMillis, Strategy strategy) {
+        if (maxRequests < 1) throw new IllegalArgumentException("Max requests must be at least 1");
+        if (windowMillis < 1) throw new IllegalArgumentException("Window must be positive");
+        this.maxRequests = maxRequests;
+        this.windowMillis = windowMillis;
+        this.strategy = strategy;
+        this.requestTimestamps = new ArrayDeque<>();
+        this.tokens = maxRequests;
+        this.lastRefillTime = Instant.now().toEpochMilli();
+        this.refillRate = (double) maxRequests / windowMillis;
+    }
+
+    public synchronized boolean allowRequest() {
+        return strategy == Strategy.TOKEN_BUCKET ? allowTokenBucket() : allowSlidingWindow();
+    }
+
+    private boolean allowSlidingWindow() {
+        long now = Instant.now().toEpochMilli();
+        long cutoff = now - windowMillis;
+        while (!requestTimestamps.isEmpty() && requestTimestamps.peekFirst() <= cutoff) {
+            requestTimestamps.pollFirst();
+        }
+        if (requestTimestamps.size() < maxRequests) {
+            requestTimestamps.addLast(now);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean allowTokenBucket() {
+        long now = Instant.now().toEpochMilli();
+        long elapsed = now - lastRefillTime;
+        tokens = Math.min(maxRequests, tokens + elapsed * refillRate);
+        lastRefillTime = now;
+        if (tokens >= 1.0) {
+            tokens -= 1.0;
+            return true;
+        }
+        return false;
+    }
+
+    public synchronized int getAvailableRequests() {
+        if (strategy == Strategy.TOKEN_BUCKET) {
+            long now = Instant.now().toEpochMilli();
+            long elapsed = now - lastRefillTime;
+            double current = Math.min(maxRequests, tokens + elapsed * refillRate);
+            return (int) current;
+        }
+        long now = Instant.now().toEpochMilli();
+        long cutoff = now - windowMillis;
+        long active = requestTimestamps.stream().filter(t -> t > cutoff).count();
+        return (int) Math.max(0, maxRequests - active);
+    }
+
+    public synchronized void reset() {
+        requestTimestamps.clear();
+        tokens = maxRequests;
+        lastRefillTime = Instant.now().toEpochMilli();
+    }
+
+    public int getMaxRequests() { return maxRequests; }
+    public long getWindowMillis() { return windowMillis; }
+    public Strategy getStrategy() { return strategy; }
+}`,
+
+NotificationService16:`package io.council;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+public class NotificationService16 {
+
+    public enum Channel { EMAIL, SMS, PUSH, WEBHOOK }
+    public enum Status { PENDING, SENT, FAILED, SKIPPED }
+
+    public static class Notification {
+        private final String id;
+        private final String recipientId;
+        private final Channel channel;
+        private final String subject;
+        private final String body;
+        private Status status;
+        private int attemptCount;
+        private String errorMessage;
+
+        public Notification(String id, String recipientId, Channel channel, String subject, String body) {
+            this.id = id;
+            this.recipientId = recipientId;
+            this.channel = channel;
+            this.subject = subject;
+            this.body = body;
+            this.status = Status.PENDING;
+            this.attemptCount = 0;
+        }
+
+        public String getId() { return id; }
+        public String getRecipientId() { return recipientId; }
+        public Channel getChannel() { return channel; }
+        public String getSubject() { return subject; }
+        public String getBody() { return body; }
+        public Status getStatus() { return status; }
+        public int getAttemptCount() { return attemptCount; }
+        public String getErrorMessage() { return errorMessage; }
+
+        @Override
+        public String toString() {
+            return String.format("Notification[%s, to=%s, ch=%s, status=%s]", id, recipientId, channel, status);
+        }
+    }
+
+    private final int maxRetries;
+    private final Set<String> suppressedRecipients;
+    private final Map<String, Set<String>> deduplicationKeys;
+    private final Map<Channel, Boolean> channelEnabled;
+    private final List<Notification> log;
+
+    public NotificationService16(int maxRetries) {
+        if (maxRetries < 0) throw new IllegalArgumentException("Max retries cannot be negative");
+        this.maxRetries = maxRetries;
+        this.suppressedRecipients = new HashSet<>();
+        this.deduplicationKeys = new HashMap<>();
+        this.channelEnabled = new HashMap<>();
+        this.log = new ArrayList<>();
+        for (Channel c : Channel.values()) channelEnabled.put(c, true);
+    }
+
+    public boolean send(Notification notification, NotificationSender sender) {
+        if (notification == null) throw new IllegalArgumentException("Notification cannot be null");
+
+        if (suppressedRecipients.contains(notification.recipientId)) {
+            notification.status = Status.SKIPPED;
+            log.add(notification);
+            return false;
+        }
+
+        if (!channelEnabled.getOrDefault(notification.channel, false)) {
+            notification.status = Status.SKIPPED;
+            log.add(notification);
+            return false;
+        }
+
+        String dedupKey = notification.recipientId + ":" + notification.subject;
+        Set<String> sentKeys = deduplicationKeys.computeIfAbsent(notification.recipientId, k -> new HashSet<>());
+        if (sentKeys.contains(dedupKey)) {
+            notification.status = Status.SKIPPED;
+            log.add(notification);
+            return false;
+        }
+
+        boolean success = false;
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            notification.attemptCount++;
+            try {
+                sender.send(notification);
+                notification.status = Status.SENT;
+                sentKeys.add(dedupKey);
+                success = true;
+                break;
+            } catch (Exception e) {
+                notification.errorMessage = e.getMessage();
+                if (attempt == maxRetries) {
+                    notification.status = Status.FAILED;
+                }
+            }
+        }
+
+        log.add(notification);
+        return success;
+    }
+
+    public void suppressRecipient(String recipientId) { suppressedRecipients.add(recipientId); }
+    public void unsuppressRecipient(String recipientId) { suppressedRecipients.remove(recipientId); }
+    public boolean isRecipientSuppressed(String recipientId) { return suppressedRecipients.contains(recipientId); }
+
+    public void enableChannel(Channel channel) { channelEnabled.put(channel, true); }
+    public void disableChannel(Channel channel) { channelEnabled.put(channel, false); }
+    public boolean isChannelEnabled(Channel channel) { return channelEnabled.getOrDefault(channel, false); }
+
+    public List<Notification> getLog() { return new ArrayList<>(log); }
+
+    public long countByStatus(Status status) {
+        return log.stream().filter(n -> n.status == status).count();
+    }
+
+    public void clearDeduplicationCache(String recipientId) { deduplicationKeys.remove(recipientId); }
+
+    @FunctionalInterface
+    public interface NotificationSender {
+        void send(Notification notification) throws Exception;
+    }
+}`,
+
+Stack17:`package io.council;
+
+import java.util.EmptyStackException;
+
+public class Stack17<T extends Comparable<T>> {
+
+    private static final int DEFAULT_CAPACITY = 16;
+
+    private Object[] data;
+    private int size;
+    private Object[] minStack;
+    private int minSize;
+    private Object[] maxStack;
+    private int maxSize;
+
+    public Stack17() { this(DEFAULT_CAPACITY); }
+
+    public Stack17(int initialCapacity) {
+        if (initialCapacity < 1) throw new IllegalArgumentException("Initial capacity must be positive");
+        data = new Object[initialCapacity];
+        minStack = new Object[initialCapacity];
+        maxStack = new Object[initialCapacity];
+        size = 0; minSize = 0; maxSize = 0;
+    }
+
+    public void push(T value) {
+        if (value == null) throw new IllegalArgumentException("Null values not supported");
+        ensureCapacity();
+        data[size++] = value;
+        if (minSize == 0 || value.compareTo(peekMin()) <= 0) {
+            if (minSize == minStack.length) minStack = java.util.Arrays.copyOf(minStack, minStack.length * 2);
+            minStack[minSize++] = value;
+        }
+        if (maxSize == 0 || value.compareTo(peekMax()) >= 0) {
+            if (maxSize == maxStack.length) maxStack = java.util.Arrays.copyOf(maxStack, maxStack.length * 2);
+            maxStack[maxSize++] = value;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public T pop() {
+        if (isEmpty()) throw new EmptyStackException();
+        T value = (T) data[--size];
+        data[size] = null;
+        if (value.compareTo(peekMin()) == 0) minStack[--minSize] = null;
+        if (value.compareTo(peekMax()) == 0) maxStack[--maxSize] = null;
+        return value;
+    }
+
+    @SuppressWarnings("unchecked")
+    public T peek() { if (isEmpty()) throw new EmptyStackException(); return (T) data[size - 1]; }
+
+    @SuppressWarnings("unchecked")
+    public T getMin() { if (isEmpty()) throw new EmptyStackException(); return (T) minStack[minSize - 1]; }
+
+    @SuppressWarnings("unchecked")
+    public T getMax() { if (isEmpty()) throw new EmptyStackException(); return (T) maxStack[maxSize - 1]; }
+
+    @SuppressWarnings("unchecked")
+    private T peekMin() { return (T) minStack[minSize - 1]; }
+
+    @SuppressWarnings("unchecked")
+    private T peekMax() { return (T) maxStack[maxSize - 1]; }
+
+    public boolean isEmpty() { return size == 0; }
+    public int size() { return size; }
+
+    public void clear() {
+        java.util.Arrays.fill(data, 0, size, null);
+        java.util.Arrays.fill(minStack, 0, minSize, null);
+        java.util.Arrays.fill(maxStack, 0, maxSize, null);
+        size = 0; minSize = 0; maxSize = 0;
+    }
+
+    private void ensureCapacity() {
+        if (size == data.length) data = java.util.Arrays.copyOf(data, data.length * 2);
+    }
+}`,
+
+CircularQueue18:`package io.council;
+
+import java.util.NoSuchElementException;
+
+public class CircularQueue18<T> {
+
+    private final Object[] buffer;
+    private int head;
+    private int tail;
+    private int size;
+    private final int capacity;
+
+    public CircularQueue18(int capacity) {
+        if (capacity < 1) throw new IllegalArgumentException("Capacity must be at least 1");
+        this.capacity = capacity;
+        this.buffer = new Object[capacity];
+        this.head = 0; this.tail = 0; this.size = 0;
+    }
+
+    public boolean enqueue(T value) {
+        if (value == null) throw new IllegalArgumentException("Null values not supported");
+        if (isFull()) return false;
+        buffer[tail] = value;
+        tail = (tail + 1) % capacity;
+        size++;
+        return true;
+    }
+
+    @SuppressWarnings("unchecked")
+    public T dequeue() {
+        if (isEmpty()) throw new NoSuchElementException("Queue is empty");
+        T value = (T) buffer[head];
+        buffer[head] = null;
+        head = (head + 1) % capacity;
+        size--;
+        return value;
+    }
+
+    @SuppressWarnings("unchecked")
+    public T peek() {
+        if (isEmpty()) throw new NoSuchElementException("Queue is empty");
+        return (T) buffer[head];
+    }
+
+    @SuppressWarnings("unchecked")
+    public T peekLast() {
+        if (isEmpty()) throw new NoSuchElementException("Queue is empty");
+        int lastIndex = (tail - 1 + capacity) % capacity;
+        return (T) buffer[lastIndex];
+    }
+
+    public boolean isEmpty() { return size == 0; }
+    public boolean isFull() { return size == capacity; }
+    public int size() { return size; }
+    public int capacity() { return capacity; }
+    public int remainingCapacity() { return capacity - size; }
+
+    public void clear() {
+        java.util.Arrays.fill(buffer, null);
+        head = 0; tail = 0; size = 0;
+    }
+
+    public boolean contains(T value) {
+        if (value == null) return false;
+        for (int i = 0; i < size; i++) {
+            if (value.equals(buffer[(head + i) % capacity])) return true;
+        }
+        return false;
+    }
+
+    public Object[] toArray() {
+        Object[] arr = new Object[size];
+        for (int i = 0; i < size; i++) arr[i] = buffer[(head + i) % capacity];
+        return arr;
+    }
+}`,
+
+DoublyLinkedList19:`package io.council;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.NoSuchElementException;
+
+public class DoublyLinkedList19<T extends Comparable<T>> {
+
+    private static class Node<T> {
+        T data; Node<T> prev; Node<T> next;
+        Node(T data) { this.data = data; }
+    }
+
+    private Node<T> head;
+    private Node<T> tail;
+    private int size;
+
+    public DoublyLinkedList19() { head = null; tail = null; size = 0; }
+
+    public void addFirst(T value) {
+        if (value == null) throw new IllegalArgumentException("Null values not supported");
+        Node<T> node = new Node<>(value);
+        if (isEmpty()) { head = tail = node; }
+        else { node.next = head; head.prev = node; head = node; }
+        size++;
+    }
+
+    public void addLast(T value) {
+        if (value == null) throw new IllegalArgumentException("Null values not supported");
+        Node<T> node = new Node<>(value);
+        if (isEmpty()) { head = tail = node; }
+        else { tail.next = node; node.prev = tail; tail = node; }
+        size++;
+    }
+
+    public void add(int index, T value) {
+        if (index < 0 || index > size) throw new IndexOutOfBoundsException("Index: " + index + ", size: " + size);
+        if (index == 0) { addFirst(value); return; }
+        if (index == size) { addLast(value); return; }
+        Node<T> current = nodeAt(index);
+        Node<T> node = new Node<>(value);
+        node.next = current; node.prev = current.prev;
+        current.prev.next = node; current.prev = node;
+        size++;
+    }
+
+    public T removeFirst() {
+        if (isEmpty()) throw new NoSuchElementException("List is empty");
+        T data = head.data;
+        if (size == 1) { head = tail = null; } else { head = head.next; head.prev = null; }
+        size--;
+        return data;
+    }
+
+    public T removeLast() {
+        if (isEmpty()) throw new NoSuchElementException("List is empty");
+        T data = tail.data;
+        if (size == 1) { head = tail = null; } else { tail = tail.prev; tail.next = null; }
+        size--;
+        return data;
+    }
+
+    public T remove(int index) {
+        checkIndex(index);
+        if (index == 0) return removeFirst();
+        if (index == size - 1) return removeLast();
+        Node<T> node = nodeAt(index);
+        node.prev.next = node.next; node.next.prev = node.prev;
+        size--;
+        return node.data;
+    }
+
+    public boolean remove(T value) {
+        Node<T> current = head;
+        while (current != null) {
+            if (current.data.equals(value)) {
+                if (current == head) { removeFirst(); return true; }
+                if (current == tail) { removeLast(); return true; }
+                current.prev.next = current.next; current.next.prev = current.prev;
+                size--;
+                return true;
+            }
+            current = current.next;
+        }
+        return false;
+    }
+
+    public T get(int index) { checkIndex(index); return nodeAt(index).data; }
+
+    public int indexOf(T value) {
+        Node<T> current = head; int idx = 0;
+        while (current != null) {
+            if (current.data.equals(value)) return idx;
+            current = current.next; idx++;
+        }
+        return -1;
+    }
+
+    public boolean contains(T value) { return indexOf(value) >= 0; }
+
+    public void reverse() {
+        Node<T> current = head; Node<T> temp = null;
+        while (current != null) {
+            temp = current.prev; current.prev = current.next; current.next = temp;
+            current = current.prev;
+        }
+        if (temp != null) { tail = head; head = temp.prev; }
+    }
+
+    public void sort() {
+        if (size <= 1) return;
+        List<T> items = toList();
+        items.sort(Comparator.naturalOrder());
+        Node<T> current = head;
+        for (T item : items) { current.data = item; current = current.next; }
+    }
+
+    public List<T> toList() {
+        List<T> list = new ArrayList<>(size);
+        Node<T> current = head;
+        while (current != null) { list.add(current.data); current = current.next; }
+        return list;
+    }
+
+    public int size() { return size; }
+    public boolean isEmpty() { return size == 0; }
+    public void clear() { head = null; tail = null; size = 0; }
+
+    private Node<T> nodeAt(int index) {
+        Node<T> current;
+        if (index < size / 2) { current = head; for (int i = 0; i < index; i++) current = current.next; }
+        else { current = tail; for (int i = size - 1; i > index; i--) current = current.prev; }
+        return current;
+    }
+
+    private void checkIndex(int index) {
+        if (index < 0 || index >= size) throw new IndexOutOfBoundsException("Index: " + index + ", size: " + size);
+    }
+}`,
+
+StringAlgorithms20:`package io.council;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public class StringAlgorithms20 {
+
+    private StringAlgorithms20() {}
+
+    public static boolean isPalindrome(String s) {
+        if (s == null) throw new IllegalArgumentException("Input cannot be null");
+        String cleaned = s.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
+        int left = 0, right = cleaned.length() - 1;
+        while (left < right) {
+            if (cleaned.charAt(left) != cleaned.charAt(right)) return false;
+            left++; right--;
+        }
+        return true;
+    }
+
+    public static boolean isAnagram(String a, String b) {
+        if (a == null || b == null) throw new IllegalArgumentException("Inputs cannot be null");
+        if (a.length() != b.length()) return false;
+        Map<Character, Integer> freq = new HashMap<>();
+        for (char c : a.toCharArray()) freq.merge(c, 1, Integer::sum);
+        for (char c : b.toCharArray()) {
+            int count = freq.getOrDefault(c, 0);
+            if (count == 0) return false;
+            freq.put(c, count - 1);
+        }
+        return true;
+    }
+
+    public static int longestSubstringWithoutRepeating(String s) {
+        if (s == null) throw new IllegalArgumentException("Input cannot be null");
+        Map<Character, Integer> lastSeen = new HashMap<>();
+        int maxLen = 0, start = 0;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (lastSeen.containsKey(c) && lastSeen.get(c) >= start) start = lastSeen.get(c) + 1;
+            lastSeen.put(c, i);
+            maxLen = Math.max(maxLen, i - start + 1);
+        }
+        return maxLen;
+    }
+
+    public static int[] kmpSearch(String text, String pattern) {
+        if (text == null || pattern == null) throw new IllegalArgumentException("Inputs cannot be null");
+        if (pattern.isEmpty()) return new int[0];
+        int[] lps = buildLPS(pattern);
+        java.util.List<Integer> matches = new java.util.ArrayList<>();
+        int i = 0, j = 0;
+        while (i < text.length()) {
+            if (text.charAt(i) == pattern.charAt(j)) {
+                i++; j++;
+                if (j == pattern.length()) { matches.add(i - j); j = lps[j - 1]; }
+            } else if (j > 0) { j = lps[j - 1]; } else { i++; }
+        }
+        return matches.stream().mapToInt(Integer::intValue).toArray();
+    }
+
+    private static int[] buildLPS(String pattern) {
+        int[] lps = new int[pattern.length()];
+        int len = 0, i = 1;
+        while (i < pattern.length()) {
+            if (pattern.charAt(i) == pattern.charAt(len)) { lps[i++] = ++len; }
+            else if (len > 0) { len = lps[len - 1]; }
+            else { lps[i++] = 0; }
+        }
+        return lps;
+    }
+
+    public static String reverseWords(String sentence) {
+        if (sentence == null) throw new IllegalArgumentException("Input cannot be null");
+        String[] words = sentence.trim().split("\\\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (int i = words.length - 1; i >= 0; i--) { sb.append(words[i]); if (i > 0) sb.append(" "); }
+        return sb.toString();
+    }
+
+    public static int countOccurrences(String text, String pattern) {
+        if (text == null || pattern == null) throw new IllegalArgumentException("Inputs cannot be null");
+        if (pattern.isEmpty()) return 0;
+        return kmpSearch(text, pattern).length;
+    }
+
+    public static boolean isRotation(String a, String b) {
+        if (a == null || b == null) throw new IllegalArgumentException("Inputs cannot be null");
+        if (a.length() != b.length()) return false;
+        if (a.isEmpty()) return true;
+        return (a + a).contains(b);
+    }
+}`,
+
+MathOperations21:`package io.council;
+
+import java.math.BigInteger;
+
+public class MathOperations21 {
+
+    private MathOperations21() {}
+
+    public static long gcd(long a, long b) {
+        if (a < 0 || b < 0) throw new IllegalArgumentException("Arguments must be non-negative");
+        while (b != 0) { long t = b; b = a % b; a = t; }
+        return a;
+    }
+
+    public static long lcm(long a, long b) {
+        if (a < 0 || b < 0) throw new IllegalArgumentException("Arguments must be non-negative");
+        if (a == 0 || b == 0) return 0;
+        return a / gcd(a, b) * b;
+    }
+
+    public static boolean isPrime(long n) {
+        if (n < 2) return false;
+        if (n == 2) return true;
+        if (n % 2 == 0) return false;
+        for (long i = 3; i * i <= n; i += 2) if (n % i == 0) return false;
+        return true;
+    }
+
+    public static BigInteger factorial(int n) {
+        if (n < 0) throw new IllegalArgumentException("Factorial is undefined for negative numbers");
+        BigInteger result = BigInteger.ONE;
+        for (int i = 2; i <= n; i++) result = result.multiply(BigInteger.valueOf(i));
+        return result;
+    }
+
+    public static long fibonacci(int n) {
+        if (n < 0) throw new IllegalArgumentException("Fibonacci is undefined for negative indices");
+        if (n == 0) return 0;
+        if (n == 1) return 1;
+        long a = 0, b = 1;
+        for (int i = 2; i <= n; i++) { long c = a + b; a = b; b = c; }
+        return b;
+    }
+
+    public static long power(long base, int exp) {
+        if (exp < 0) throw new IllegalArgumentException("Exponent must be non-negative");
+        long result = 1, b = base; int e = exp;
+        while (e > 0) { if ((e & 1) == 1) result *= b; b *= b; e >>= 1; }
+        return result;
+    }
+
+    public static long power(long base, int exp, long mod) {
+        if (mod < 1) throw new IllegalArgumentException("Modulus must be positive");
+        if (exp < 0) throw new IllegalArgumentException("Exponent must be non-negative");
+        long result = 1, b = base % mod; int e = exp;
+        while (e > 0) { if ((e & 1) == 1) result = result * b % mod; b = b * b % mod; e >>= 1; }
+        return result;
+    }
+
+    public static boolean isPerfectSquare(long n) {
+        if (n < 0) return false;
+        long root = (long) Math.sqrt(n);
+        return root * root == n;
+    }
+
+    public static int[] primeFactors(int n) {
+        if (n < 2) throw new IllegalArgumentException("Input must be at least 2");
+        java.util.List<Integer> factors = new java.util.ArrayList<>();
+        for (int d = 2; (long) d * d <= n; d++) { while (n % d == 0) { factors.add(d); n /= d; } }
+        if (n > 1) factors.add(n);
+        return factors.stream().mapToInt(Integer::intValue).toArray();
+    }
+
+    public static long combinations(int n, int k) {
+        if (n < 0 || k < 0) throw new IllegalArgumentException("n and k must be non-negative");
+        if (k > n) return 0;
+        if (k == 0 || k == n) return 1;
+        k = Math.min(k, n - k);
+        long result = 1;
+        for (int i = 0; i < k; i++) result = result * (n - i) / (i + 1);
+        return result;
+    }
+}`
+};
+
+const REVIEW_PAIRS = [
+  {suite:'GPT', reviewer:'Claude'},
+  {suite:'GPT', reviewer:'Gemini'},
+  {suite:'Claude', reviewer:'GPT'},
+  {suite:'Claude', reviewer:'Gemini'},
+  {suite:'Gemini', reviewer:'GPT'},
+  {suite:'Gemini', reviewer:'Claude'},
+];
+const CRITERIA = ['assertion_quality','edge_case_handling','semantic_correctness','readability','redundancy_reduction','branch_coverage_potential'];
+const CRITERIA_LABELS = {assertion_quality:'Assertion Quality',edge_case_handling:'Edge Cases',semantic_correctness:'Semantic',readability:'Readability',redundancy_reduction:'Redundancy',branch_coverage_potential:'Branch Potential'};
+
+// ─── Server health check ─────────────────────
+async function checkServer() {
+  const badge = document.getElementById('serverBadge');
+  try {
+    const r = await fetch(API + '/health', {signal: AbortSignal.timeout(3000)});
+    if (r.ok) {
+      badge.className = 'server-badge badge-ok';
+      badge.innerHTML = '● Server connected';
+    } else throw new Error();
+  } catch {
+    badge.className = 'server-badge badge-err';
+    badge.innerHTML = '✗ Server offline — run: <code style="font-size:10px">bash start_council.sh</code>';
+  }
+}
+
+// ─── Navigation ──────────────────────────────
+function goTo(idx) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel' + idx).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach((n, i) => {
+    n.classList.remove('active');
+    if (i === idx) n.classList.add('active');
+  });
+  state.currentPanel = idx;
+  const pct = Math.round((idx / 8) * 100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = 'Step ' + (idx + 1) + ' of 9';
+  if (idx === 5) renderReviewBlocks();
+  if (idx === 6) renderVotingPrompt();
+  if (idx === 7) renderSynthesisPanel();
+  if (idx === 8) renderExport();
+}
+
+// ─── Class Selection ─────────────────────────
+function onClassChange() {
+  const val = document.getElementById('classSelect').value;
+  state.selectedClass = val;
+  if (!val) { document.getElementById('classInfoCard').style.display = 'none'; return; }
+  const info = CLASS_INFO[val];
+  document.getElementById('classInfoCard').style.display = 'block';
+  document.getElementById('classDescription').innerHTML = `
+    <p style="font-size:13px;line-height:1.7;margin-bottom:10px">${info.desc}</p>
+    <div>${info.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>`;
+  document.getElementById('sourceCodeDisplay').textContent = SOURCE_CODE[val];
+  buildGenerationPrompt();
+}
+
+function copySource() { navigator.clipboard.writeText(SOURCE_CODE[state.selectedClass] || ''); }
+
+function buildGenerationPrompt() {
+  if (!state.selectedClass) return;
+  const tName = state.selectedClass + 'Test';
+  const src = SOURCE_CODE[state.selectedClass];
+  const p = `You are an expert Java developer writing JUnit 5 unit tests.
+
+Generate a COMPLETE, COMPILABLE JUnit 5 test class.
+
+Requirements:
+- Use JUnit 5 only.
+- Use Mockito only when required.
+- Cover all public methods.
+- Include happy-path, failure-path, null, boundary, and edge cases.
+- Use descriptive @DisplayName annotations.
+- Plain unit tests only.
+- Test class name: ${tName}
+- Package: io.council
+
+CRITICAL:
+Before generating assertions, manually trace the implementation and compute the exact expected values.
+
+Do NOT guess expected results.
+
+For every test:
+1. Derive outputs directly from the source code.
+2. Verify enum values by following all branches.
+3. Calculate exact string outputs character-by-character.
+4. Calculate exact counts, lengths, scores, and return values.
+5. Ensure the entire suite passes without modification.
+
+Here is the source class:
+
+${src}
+
+Return only the complete Java test class.`;
+  document.getElementById('generationPrompt').textContent = p;
+}
+
+function copyGenPrompt() {
+  navigator.clipboard.writeText(document.getElementById('generationPrompt').textContent);
+}
+
+// ─── Setup (Panel 1) ─────────────────────────
+async function runSetup() {
+  const btn = document.getElementById('setupBtn');
+  const log = document.getElementById('setupLog');
+  const result = document.getElementById('setupResult');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Running...';
+  log.style.display = 'block';
+  log.innerHTML = '';
+  result.innerHTML = '';
+
+  let jobId;
+  try {
+    const r = await fetch(API + '/setup', {method: 'POST'});
+    if (!r.ok) throw new Error('Server returned ' + r.status);
+    const data = await r.json();
+    jobId = data.jobId;
+  } catch (e) {
+    btn.disabled = false;
+    btn.innerHTML = '▶ Run Setup';
+    result.innerHTML = '<div class="alert alert-err">❌ Cannot connect to server. Make sure <code>python3 server.py</code> is running.</div>';
+    return;
+  }
+
+  let offset = 0;
+  const poll = setInterval(async () => {
+    try {
+      const r = await fetch(`${API}/job-status?id=${jobId}&offset=${offset}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      (data.lines || []).forEach(line => appendLog(log, line));
+      offset = data.offset;
+      if (data.done) {
+        clearInterval(poll);
+        btn.disabled = false;
+        btn.innerHTML = '▶ Run Setup';
+        if (data.success) {
+          result.innerHTML = '<div class="alert alert-success">✅ Setup complete! Project built successfully.</div>';
+          document.getElementById('setupNext').disabled = false;
+        } else {
+          result.innerHTML = '<div class="alert alert-err">❌ Build failed — check the log above for errors.</div>';
+        }
+      }
+    } catch { /* network blip — keep polling */ }
+  }, 1000);
+}
+
+function appendLog(box, text) {
+  const cls = text.includes('✅') || text.includes('✓') || text.includes('BUILD SUCCESSFUL') ? 'log-ok'
+    : text.includes('❌') || text.includes('✗') || text.includes('FAILED') || text.includes('ERROR') ? 'log-err'
+    : text.startsWith('[') ? 'log-info' : 'log-line';
+  const line = document.createElement('div');
+  line.className = cls;
+  line.textContent = text;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+// ─── Save Tests (Panel 2) ─────────────────────
+async function saveTests() {
+  if (!state.selectedClass) { alert('Please select a class first.'); return; }
+  let saved = 0;
+  for (const [m, elId] of [['GPT','gptOutput'],['Claude','claudeOutput'],['Gemini','geminiOutput']]) {
+    const codeVal = document.getElementById(elId).value.trim();
+    if (!codeVal) continue;
+    const r = await fetch(API + '/save-test', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({model: m, className: state.selectedClass, code: codeVal})
+    });
+    if (r.ok) saved++;
+  }
+  if (saved === 0) { alert('No test outputs to save. Paste AI responses first.'); return; }
+  goTo(3);
+}
+
+// ─── Run Metrics (Panel 3) ────────────────────
+async function runMetrics(model) {
+  if (!state.selectedClass) { alert('Select a class first'); return; }
+  const btn = document.getElementById('runBtn_' + model);
+  const log = document.getElementById('metricsLog_' + model);
+  const status = document.getElementById('metricsStatus_' + model);
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  log.style.display = 'block';
+  log.innerHTML = '';
+  status.innerHTML = '<span class="spinner"></span> Running...';
+
+  let jobId;
+  try {
+    const r = await fetch(API + '/run-metrics', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({model, className: state.selectedClass})
+    });
+    if (!r.ok) throw new Error('Server returned ' + r.status);
+    const data = await r.json();
+    jobId = data.jobId;
+  } catch (e) {
+    btn.disabled = false;
+    btn.innerHTML = '▶ Run';
+    status.innerHTML = '<span style="color:var(--danger)">❌ Server error</span>';
+    return;
+  }
+
+  let offset = 0;
+  const poll = setInterval(async () => {
+    try {
+      const r = await fetch(`${API}/job-status?id=${jobId}&offset=${offset}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      (data.lines || []).forEach(line => appendLog(log, line));
+      offset = data.offset;
+      if (data.done) {
+        clearInterval(poll);
+        btn.disabled = false;
+        btn.innerHTML = '✓ Done';
+        btn.style.background = 'var(--success)';
+        if (data.result) {
+          state.metrics[model] = data.result;
+          fillMetrics(model, data.result);
+          const mutDisplay = data.result.mutationScore === null ? 'N/A (suite has failures)' : data.result.mutationScore + '%';
+          status.innerHTML = `<span style="color:var(--success)">✅ Line: ${data.result.lineCoverage}% | Branch: ${data.result.branchCoverage}% | Mutation: ${mutDisplay}</span>`;
+          checkAllMetricsDone();
+        } else if (!data.success) {
+          btn.innerHTML = '▶ Retry';
+          status.innerHTML = '<span style="color:var(--danger)">❌ Run failed — check log</span>';
+        }
+      }
+    } catch { /* network blip — keep polling */ }
+  }, 1000);
+}
+
+async function runAllMetrics() {
+  await runMetrics('GPT');
+}
+
+function fillMetrics(model, m) {
+  const pfx = model.toLowerCase();
+  function setVal(id, val) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = val;
+    el.classList.add('auto-filled');
+  }
+  setVal(pfx + '_compile', m.compile);
+  setVal(pfx + '_pass', m.pass);
+  setVal(pfx + '_testcount', m.testCount);
+  setVal(pfx + '_line', m.lineCoverage);
+  setVal(pfx + '_branch', m.branchCoverage);
+  setVal(pfx + '_mutation', m.mutationScore);
+  setVal(pfx + '_failures', m.failures);
+  // For selects
+  const compileEl = document.getElementById(pfx + '_compile');
+  if (compileEl && compileEl.tagName === 'SELECT') compileEl.value = m.compile;
+  const passEl = document.getElementById(pfx + '_pass');
+  if (passEl && passEl.tagName === 'SELECT') passEl.value = m.pass;
+}
+
+function checkAllMetricsDone() {
+  const done = ['GPT','Claude','Gemini'].every(m => state.metrics[m]);
+  if (done) document.getElementById('metricsAutoNote').style.display = 'flex';
+}
+
+// ─── Peer Review (Panel 5) ────────────────────
+function renderReviewBlocks() {
+  const tName = (state.selectedClass || 'TestClass') + 'Test';
+  const outputs = {
+    GPT: document.getElementById('gptOutput').value.trim(),
+    Claude: document.getElementById('claudeOutput').value.trim(),
+    Gemini: document.getElementById('geminiOutput').value.trim(),
+  };
+
+  // REVIEW_PAIRS uses real model names internally but prompts use blind labels
+  document.getElementById('reviewBlocks').innerHTML = REVIEW_PAIRS.map((pair, i) => {
+    const suiteCode = outputs[pair.suite];
+    const hasSuite  = !!suiteCode;
+    const blindSuiteLabel = suiteLabel[pair.suite];
+    const prompt = hasSuite ? buildReviewPrompt(tName, blindSuiteLabel, suiteCode) : '';
+    const autoProvider = pair.reviewer === 'Gemini' ? 'autoGemini'
+                       : pair.reviewer === 'GPT'    ? 'autoGpt'
+                       : pair.reviewer === 'Claude' ? 'autoClaude' : '';
+    const promptBox = hasSuite
+      ? `<pre class="prompt-box" id="reviewPrompt_${i}" style="max-height:160px; font-size:10.5px">${prompt}</pre>`
+      : `<div class="prompt-box" style="max-height:160px; font-size:12px; color:var(--gpt)">⚠️ Suite ${blindSuiteLabel} (${pair.suite}) code is missing — go back to Step 3 (Generate) and paste ${pair.suite}'s test class first. The review prompt will appear here once it's filled in.</div>
+         <pre id="reviewPrompt_${i}" style="display:none"></pre>`;
+    const copyBtn = hasSuite
+      ? `<button class="btn btn-copy btn-sm" onclick="copyReviewPrompt(${i})">📋 Copy Prompt</button>`
+      : `<button class="btn btn-copy btn-sm" disabled style="opacity:.5; cursor:not-allowed">📋 Copy Prompt</button>`;
+    const autoBtn = (hasSuite && autoProvider)
+      ? `<button class="btn btn-run btn-sm" style="margin-top:6px" onclick="${autoProvider}(this,'reviewPrompt_${i}','reviewJson_${i}')">🤖 Auto-review with ${pair.reviewer} API</button>`
+      : '';
+    return `
+    <div class="review-block" id="reviewBlock_${i}">
+      <div class="flex-between" style="margin-bottom:10px">
+        <div class="flex gap-8">
+          <span style="font-size:13px">Review ${i+1}:</span>
+          <span class="model-chip chip-${pair.suite.toLowerCase()}">Suite ${blindSuiteLabel}</span>
+          <span style="color:var(--muted); font-size:12px">reviewed by</span>
+          <span class="model-chip chip-${pair.reviewer.toLowerCase()}">${pair.reviewer}</span>
+        </div>
+        ${copyBtn}
+      </div>
+      ${promptBox}
+      <div style="margin-top:10px">
+        <label>Paste ${pair.reviewer}'s JSON response:</label>
+        <textarea id="reviewJson_${i}" placeholder='{"assertion_quality":8,"edge_case_handling":7,...}' style="min-height:80px; margin-top:4px" oninput="autoParseReview(${i})"></textarea>
+        ${autoBtn}
+      </div>
+      <div class="flex-between mt-10">
+        <div id="reviewAvg_${i}" style="font-size:13px; color:var(--muted)">—</div>
+        <button class="btn btn-parse btn-sm" onclick="parseReview(${i})">⚡ Parse Scores</button>
+      </div>
+      <div class="criteria-grid" id="criteriaGrid_${i}">
+        ${CRITERIA.map(c => `
+          <div class="criteria-item">
+            <label>${CRITERIA_LABELS[c]}</label>
+            <input type="number" id="pr_${i}_${c}" min="1" max="10" placeholder="—" oninput="recalcAvg(${i})">
+          </div>`).join('')}
+      </div>
+      <div id="overallComment_${i}" class="overall-comment"></div>
+    </div>`;
+  }).join('');
+}
+
+function buildReviewPrompt(tName, blindLabel, code) {
+  return `You are a senior Java developer and testing expert.
+
+Review this JUnit 5 test class written for: ${tName}.java
+Return ONLY a JSON object with exactly these keys:
+
+{
+  "assertion_quality": <1-10>,
+  "edge_case_handling": <1-10>,
+  "semantic_correctness": <1-10>,
+  "readability": <1-10>,
+  "redundancy_reduction": <1-10>,
+  "branch_coverage_potential": <1-10>,
+  "overall_comments": "<2-3 sentence summary>"
+}
+
+Here is the test class (Suite ${blindLabel}):
+
+${code}`;
+}
+
+function copyReviewPrompt(idx) {
+  navigator.clipboard.writeText(document.getElementById('reviewPrompt_' + idx)?.textContent || '');
+}
+
+let autoParseReviewTimeout = {};
+function autoParseReview(idx) {
+  clearTimeout(autoParseReviewTimeout[idx]);
+  autoParseReviewTimeout[idx] = setTimeout(() => parseReview(idx), 800);
+}
+
+async function parseReview(idx) {
+  const raw = document.getElementById('reviewJson_' + idx)?.value?.trim();
+  if (!raw) return;
+  try {
+    const r = await fetch(API + '/parse-review-json', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({raw})
+    });
+    const data = await r.json();
+    if (data.error) { console.warn('Review parse error:', data.error); return; }
+    state.reviewScores[idx] = data;
+    CRITERIA.forEach(c => {
+      const el = document.getElementById(`pr_${idx}_${c}`);
+      if (el && data[c] != null) { el.value = data[c]; el.classList.add('auto-filled'); }
+    });
+    if (data.overall_comments) {
+      document.getElementById('overallComment_' + idx).textContent = '"' + data.overall_comments + '"';
+    }
+    recalcAvg(idx);
+    document.getElementById('reviewBlock_' + idx).classList.add('parsed');
+  } catch (e) {
+    console.warn('Parse review failed:', e);
+  }
+}
+
+function recalcAvg(idx) {
+  const vals = CRITERIA.map(c => parseFloat(document.getElementById(`pr_${idx}_${c}`)?.value)).filter(v => !isNaN(v));
+  const avg = vals.length ? (vals.reduce((a,b) => a+b, 0) / vals.length).toFixed(2) : '—';
+  document.getElementById('reviewAvg_' + idx).innerHTML = `Avg Score: <strong style="color:var(--accent2)">${avg}</strong>`;
+}
+
+// ─── Synthesis (Panel 7) ──────────────────────
+function renderSynthesisPanel() {
+  // Show blind mapping card
+  const mappingEl = document.getElementById('blindMappingDisplay');
+  if (mappingEl) {
+    mappingEl.innerHTML = ['A','B','C'].map(lbl =>
+      `<span style="margin-right:20px">Suite <strong>${lbl}</strong> = <span class="model-chip chip-${suiteModel[lbl].toLowerCase()}">${suiteModel[lbl]}</span></span>`
+    ).join('');
+  }
+
+  if (!state.winner) {
+    document.getElementById('synthesisPrompt').textContent = 'Go to Council Vote first to identify the winner.';
+    return;
+  }
+  document.getElementById('synthesisPrompt').textContent = buildSynthesisPrompt();
+}
+
+function buildSynthesisPrompt() {
+  const tName = (state.selectedClass || 'TestClass') + 'Test';
+  const winnerCode = document.getElementById(
+    {GPT:'gptOutput', Claude:'claudeOutput', Gemini:'geminiOutput'}[state.winner]
+  )?.value?.trim() || '[winner code not found]';
+
+  // Collect all 6 reviews, keyed by blind suite label
+  const reviewsByLabel = {A:'', B:'', C:''};
+  REVIEW_PAIRS.forEach((pair, i) => {
+    const lbl = suiteLabel[pair.suite];
+    const comment = state.reviewScores[i]?.overall_comments || '';
+    const avg = state.reviewScores[i]?.avg ?? '—';
+    if (comment || avg !== '—') {
+      reviewsByLabel[lbl] += `  • Reviewer (${pair.reviewer}): avg ${avg}/10 — "${comment}"\n`;
+    }
+  });
+
+  const reviewSection = ['A','B','C'].map(lbl => {
+    const lines = reviewsByLabel[lbl] || '  (no review recorded)\n';
+    return `--- Reviews for Suite ${lbl} ---\n${lines}`;
+  }).join('\n');
+
+  return `You are an expert Java developer. Your task is to synthesize the BEST possible JUnit 5 test suite.
+
+You are given:
+1. The WINNING test suite from a council evaluation (Suite ${suiteLabel[state.winner]}).
+2. Blind peer reviews of all three candidate suites (A, B, C) — author identities are hidden.
+
+Use the reviews to identify gaps, weaknesses, and improvements across all suites, then produce a SINGLE synthesized test class that incorporates the best elements of all feedback.
+
+Requirements:
+- Start from the winning suite as your base
+- Address every weakness mentioned in its reviews
+- Add any strong test cases or edge cases praised in other suites' reviews
+- Test class name: ${tName}
+- Package: io.council
+- JUnit 5 only, no Spring context
+
+CRITICAL:
+Before generating assertions, manually trace the implementation and compute the exact expected values.
+
+Do NOT guess expected results.
+
+For every test:
+1. Derive outputs directly from the source code.
+2. Verify enum values by following all branches.
+3. Calculate exact string outputs character-by-character.
+4. Calculate exact counts, lengths, scores, and return values.
+5. Ensure the entire suite passes without modification.
+
+=== WINNING SUITE (Suite ${suiteLabel[state.winner]}) ===
+${winnerCode}
+
+=== PEER REVIEWS (all suites, blind) ===
+${reviewSection}
+
+Return only the complete synthesized Java test class.`;
+}
+
+function copySynthesisPrompt() {
+  navigator.clipboard.writeText(document.getElementById('synthesisPrompt').textContent);
+}
+
+async function saveSynthesisAndRun(model) {
+  if (!state.selectedClass) { alert('Select a class first.'); return; }
+  const code = document.getElementById('synthesisOutput_' + model)?.value?.trim();
+  if (!code) { alert('Paste the synthesized test class first.'); return; }
+
+  const btn   = document.getElementById('synthRunBtn_' + model);
+  const log   = document.getElementById('synthesisLog_' + model);
+  const status = document.getElementById('synthesisStatus_' + model);
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  log.style.display = 'block';
+  log.innerHTML = '';
+  status.innerHTML = '<span class="spinner"></span> Saving...';
+
+  // Save file
+  try {
+    const r = await fetch(API + '/save-synthesis-test', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({model, className: state.selectedClass, code})
+    });
+    if (!r.ok) throw new Error('Save failed');
+  } catch (e) {
+    btn.disabled = false; btn.innerHTML = '▶ Save & Run Metrics';
+    status.innerHTML = '<span style="color:var(--danger)">❌ Save failed</span>';
+    return;
+  }
+
+  status.innerHTML = '<span class="spinner"></span> Running metrics...';
+
+  let jobId;
+  try {
+    const r = await fetch(API + '/run-synthesis-metrics', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({model, className: state.selectedClass})
+    });
+    if (!r.ok) throw new Error('Server returned ' + r.status);
+    const data = await r.json();
+    jobId = data.jobId;
+  } catch (e) {
+    btn.disabled = false; btn.innerHTML = '▶ Save & Run Metrics';
+    status.innerHTML = '<span style="color:var(--danger)">❌ Server error</span>';
+    return;
+  }
+
+  let offset = 0;
+  const poll = setInterval(async () => {
+    try {
+      const r = await fetch(`${API}/job-status?id=${jobId}&offset=${offset}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      (data.lines || []).forEach(line => appendLog(log, line));
+      offset = data.offset;
+      if (data.done) {
+        clearInterval(poll);
+        btn.disabled = false;
+        btn.innerHTML = '✓ Done';
+        btn.style.background = 'var(--success)';
+        if (data.result) {
+          state.synthesisMetrics[model] = data.result;
+          const ms = data.result.mutationScore === null ? 'N/A' : data.result.mutationScore + '%';
+          status.innerHTML = `<span style="color:var(--success)">✅ Line: ${data.result.lineCoverage}% | Branch: ${data.result.branchCoverage}% | Mutation: ${ms}</span>`;
+          checkSynthesisDone();
+        } else {
+          status.innerHTML = '<span style="color:var(--danger)">❌ Run failed</span>';
+        }
+      }
+    } catch { /* network blip */ }
+  }, 1000);
+}
+
+function checkSynthesisDone() {
+  const all = ['GPT','Claude','Gemini'];
+  const done = all.filter(m => state.synthesisMetrics[m]);
+  if (done.length === 0) return;
+
+  // Find best mutation score among completed runs
+  let best = null, bestScore = -1;
+  done.forEach(m => {
+    const score = state.synthesisMetrics[m]?.mutationScore ?? -1;
+    if (score > bestScore) { bestScore = score; best = m; }
+  });
+  state.synthesisWinner = best;
+  state.synthesisWinnerMetrics = state.synthesisMetrics[best];
+
+  const section = document.getElementById('synthesisResultSection');
+  section.style.display = 'block';
+
+  // Metrics comparison table
+  document.getElementById('synthesisMetricsDisplay').innerHTML = renderHTMLTable(
+    ['Synthesizer','Line Cov %','Branch Cov %','Mutation %','Test Count'],
+    done.map(m => {
+      const r = state.synthesisMetrics[m];
+      const isWinner = m === best && done.length === 3;
+      const badge = isWinner ? ' 🏆' : '';
+      return [m + badge, r.lineCoverage, r.branchCoverage, r.mutationScore ?? 'N/A', r.testCount];
+    }),
+    'synthCompTable'
+  );
+
+  if (done.length === 3) {
+    document.getElementById('synthesisWinnerDisplay').innerHTML = `
+      <div class="flex gap-12" style="align-items:center">
+        <span class="winner-badge">🏆 Best Synthesizer: ${best}</span>
+        <span style="color:var(--muted); font-size:13px">Mutation score: ${bestScore}% (metrics decided — no vote)</span>
+      </div>`;
+  }
+}
+
+// ─── Council Vote (Panel 6) ───────────────────
+function renderVotingPrompt() {
+  const tName = (state.selectedClass || 'TestClass') + 'Test';
+  const outputs = {
+    GPT: document.getElementById('gptOutput').value.trim() || '[GPT test — go back to Step 3]',
+    Claude: document.getElementById('claudeOutput').value.trim() || '[Claude test — go back to Step 3]',
+    Gemini: document.getElementById('geminiOutput').value.trim() || '[Gemini test — go back to Step 3]',
+  };
+
+  // Build in label order A, B, C so order doesn't leak identity
+  const labelOrder = ['A','B','C'];
+  const suiteBlocks = labelOrder.map(lbl => {
+    const m = suiteModel[lbl];
+    return `=== TEST SUITE ${lbl} ===\n${outputs[m]}`;
+  }).join('\n\n');
+
+  document.getElementById('votingPrompt').textContent =
+`You are a senior Java testing expert on a research council.
+
+THREE JUnit 5 test classes for the same source: ${tName}.java
+The suites are labelled A, B, and C — author identity is intentionally hidden.
+
+Vote for the SINGLE BEST test suite. Consider: correctness, readability, assertion quality, edge-case handling, coverage potential.
+
+Return ONLY a JSON object:
+{
+  "vote": "<A | B | C>",
+  "rank_1": "<label>", "rank_2": "<label>", "rank_3": "<label>",
+  "correctness_rationale": "<1 sentence>",
+  "maintainability_rationale": "<1 sentence>",
+  "assertion_quality_rationale": "<1 sentence>",
+  "edge_case_rationale": "<1 sentence>"
+}
+
+${suiteBlocks}`;
+}
+
+function copyVotePrompt() {
+  navigator.clipboard.writeText(document.getElementById('votingPrompt').textContent);
+}
+
+let autoParseVoteTimeout = {};
+function autoParseVote(voter) {
+  clearTimeout(autoParseVoteTimeout[voter]);
+  autoParseVoteTimeout[voter] = setTimeout(() => parseVote(voter), 800);
+}
+
+async function parseVote(voter) {
+  const raw = document.getElementById('voteJson_' + voter)?.value?.trim();
+  if (!raw) return;
+  try {
+    const r = await fetch(API + '/parse-vote-json', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({raw})
+    });
+    const data = await r.json();
+    if (data.error) { console.warn('Vote parse error:', data.error); return; }
+    // Resolve blind label (A/B/C) back to real model name
+    const rawVote = data.vote;
+    const resolvedVote = suiteModel[rawVote] || rawVote; // fallback if model already named
+    data.vote   = resolvedVote;
+    data.rank_1 = suiteModel[data.rank_1] || data.rank_1;
+    data.rank_2 = suiteModel[data.rank_2] || data.rank_2;
+    data.rank_3 = suiteModel[data.rank_3] || data.rank_3;
+    state.votes[voter] = data;
+    const voteDisplay = document.getElementById('voteParsed_' + voter);
+    voteDisplay.innerHTML = `Voted: <span class="model-chip chip-${resolvedVote.toLowerCase()}">${resolvedVote}</span>`;
+    updateTally();
+  } catch (e) { console.warn('Parse vote failed:', e); }
+}
+
+function updateTally() {
+  const all = ['GPT','Claude','Gemini'];
+  const parsedVotes = all.map(v => state.votes[v]?.vote).filter(Boolean);
+  if (parsedVotes.length === 0) return;
+
+  const tally = {GPT:0, Claude:0, Gemini:0};
+  parsedVotes.forEach(v => { if (tally[v] !== undefined) tally[v]++; });
+  const winnerEntry = Object.entries(tally).sort((a,b) => b[1]-a[1])[0];
+  state.winner = winnerEntry[0];
+
+  document.getElementById('tallySection').style.display = 'block';
+  document.getElementById('tallyDisplay').innerHTML = `
+    <div class="grid-3" style="margin-bottom:14px">
+      ${all.map(m => `
+        <div style="text-align:center">
+          <span class="model-chip chip-${m.toLowerCase()}">${m}</span>
+          <div style="font-size:28px; font-weight:700; margin-top:8px; color:${tally[m] === winnerEntry[1] && winnerEntry[1] > 0 ? 'var(--success)' : 'var(--muted)'}">${tally[m]}</div>
+        </div>`).join('')}
+    </div>`;
+
+  if (parsedVotes.length === 3) {
+    document.getElementById('winnerSection').innerHTML = `
+      <div class="flex gap-12" style="align-items:center; margin-bottom:12px">
+        <span class="winner-badge">🏆 Council Winner: ${state.winner}</span>
+        <span style="color:var(--muted); font-size:13px">${winnerEntry[1]} of 3 votes</span>
+      </div>
+      <button class="btn btn-run" onclick="runWinnerMetrics()">▶ Run Winner Metrics Automatically</button>`;
+    document.getElementById('winnerMetricsFields').style.display = 'block';
+  }
+}
+
+async function runWinnerMetrics() {
+  if (!state.winner || !state.selectedClass) return;
+  const log = document.getElementById('winnerMetricsLog');
+  log.style.display = 'block';
+  log.innerHTML = '';
+  const btn = document.querySelector('#winnerSection .btn-run');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Running...'; }
+
+  let jobId;
+  try {
+    const r = await fetch(API + '/run-winner-metrics', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({model: state.winner, className: state.selectedClass})
+    });
+    if (!r.ok) throw new Error('Server returned ' + r.status);
+    const data = await r.json();
+    jobId = data.jobId;
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.innerHTML = '▶ Run Winner Metrics Automatically'; }
+    return;
+  }
+
+  let offset = 0;
+  const poll = setInterval(async () => {
+    try {
+      const r = await fetch(`${API}/job-status?id=${jobId}&offset=${offset}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      (data.lines || []).forEach(line => appendLog(log, line));
+      offset = data.offset;
+      if (data.done) {
+        clearInterval(poll);
+        if (btn) { btn.disabled = false; btn.innerHTML = '✓ Done'; btn.style.background = 'var(--success)'; }
+        if (data.result) {
+          state.winnerMetrics = data.result;
+          ['line','branch','mutation','testcount'].forEach(key => {
+            const metricKey = key === 'line' ? 'lineCoverage' : key === 'branch' ? 'branchCoverage' : key === 'mutation' ? 'mutationScore' : 'testCount';
+            const el = document.getElementById('winner_' + key);
+            if (el) { el.value = data.result[metricKey]; el.classList.add('auto-filled'); }
+          });
+        }
+      }
+    } catch { /* network blip — keep polling */ }
+  }, 1000);
+}
+
+// ─── Export (Panel 8) ─────────────────────────
+function renderExport() {
+  const cls = state.selectedClass || '—';
+  const v = id => { const el = document.getElementById(id); return el ? el.value || '—' : '—'; };
+  const rv = (i, c) => { const el = document.getElementById(`pr_${i}_${c}`); return el ? el.value || '—' : '—'; };
+
+  // S2
+  const s2rows = ['GPT','Claude','Gemini'].map((m, i) => {
+    const p = m.toLowerCase();
+    return [m, cls, v(p+'_compile'), v(p+'_pass'), v(p+'_testcount'), v(p+'_line'), v(p+'_branch'), v(p+'_mutation'), v(p+'_failures')];
+  });
+  document.getElementById('s2Display').innerHTML = renderHTMLTable(
+    ['Model','Class','Compile?','Tests Pass?','Test Count','Line Cov %','Branch Cov %','Mutation %','Failures'], s2rows, 's2table');
+
+  // S3
+  const s3rows = REVIEW_PAIRS.map((pair, i) => {
+    const scores = CRITERIA.map(c => rv(i, c));
+    const nums = scores.map(s => parseFloat(s)).filter(n => !isNaN(n));
+    const avg = nums.length ? (nums.reduce((a,b) => a+b, 0)/nums.length).toFixed(2) : '—';
+    return [pair.suite + ' suite', pair.reviewer, ...scores, avg];
+  });
+  document.getElementById('s3Display').innerHTML = renderHTMLTable(
+    ['Suite','Reviewer','Assertion','Edge Cases','Semantic','Readability','Redundancy','Branch Potential','Avg'], s3rows, 's3table');
+
+  // S4
+  const votes = ['GPT','Claude','Gemini'].map(v2 => state.votes[v2]?.vote || '—');
+  const tally = {GPT:0,Claude:0,Gemini:0};
+  votes.filter(v2 => v2 !== '—').forEach(v2 => { if (tally[v2] !== undefined) tally[v2]++; });
+  const winnerModel = state.winner || '—';
+  document.getElementById('s4Display').innerHTML = renderHTMLTable(
+    ['Voter','Vote','GPT Tally','Claude Tally','Gemini Tally','Council Winner'],
+    [['GPT-5.5', votes[0], tally.GPT, tally.Claude, tally.Gemini, winnerModel],
+     ['Claude', votes[1], '', '', '', ''],
+     ['Gemini', votes[2], '', '', '', '']], 's4table');
+
+  // S5
+  document.getElementById('s5Display').innerHTML = renderHTMLTable(
+    ['Winner','Class','Line Cov %','Branch Cov %','Mutation %','Test Count','Votes'],
+    [[winnerModel, cls, v('winner_line'), v('winner_branch'), v('winner_mutation'), v('winner_testcount'), tally[winnerModel] || '—']], 's5table');
+
+  // S6
+  const toNum = id => parseFloat(v(id)) || 0;
+  const bestLine = Math.max(toNum('gpt_line'), toNum('claude_line'), toNum('gemini_line'));
+  const bestBranch = Math.max(toNum('gpt_branch'), toNum('claude_branch'), toNum('gemini_branch'));
+  const bestMut = Math.max(toNum('gpt_mutation'), toNum('claude_mutation'), toNum('gemini_mutation'));
+  const wLine = toNum('winner_line'), wBranch = toNum('winner_branch'), wMut = toNum('winner_mutation');
+  const delta = (w, b) => b === 0 ? '—' : w > b ? `+${(w-b).toFixed(1)} BETTER` : w === b ? 'SAME' : `${(w-b).toFixed(1)} WORSE`;
+  document.getElementById('s6Display').innerHTML = renderHTMLTable(
+    ['Metric','GPT','Claude','Gemini','Best Individual','Council','Δ vs Best'],
+    [
+      ['Line Coverage %', v('gpt_line'), v('claude_line'), v('gemini_line'), bestLine||'—', wLine||'—', delta(wLine,bestLine)],
+      ['Branch Coverage %', v('gpt_branch'), v('claude_branch'), v('gemini_branch'), bestBranch||'—', wBranch||'—', delta(wBranch,bestBranch)],
+      ['Mutation Score %', v('gpt_mutation'), v('claude_mutation'), v('gemini_mutation'), bestMut||'—', wMut||'—', delta(wMut,bestMut)],
+    ], 's6table');
+
+  // S7 — Synthesis Results
+  const synthRows = ['GPT','Claude','Gemini'].map(m => {
+    const r = state.synthesisMetrics[m];
+    const isWinner = m === state.synthesisWinner ? ' 🏆' : '';
+    if (!r) return [m + isWinner, cls, '—', '—', '—', '—'];
+    return [m + isWinner, cls, r.lineCoverage, r.branchCoverage, r.mutationScore ?? 'N/A', r.testCount];
+  });
+  document.getElementById('s7Display').innerHTML = renderHTMLTable(
+    ['Synthesizer','Class','Line Cov %','Branch Cov %','Mutation %','Test Count'], synthRows, 's7table');
+}
+
+function renderHTMLTable(headers, rows, id) {
+  return `<div style="overflow-x:auto"><table class="export-table" id="${id}">
+    <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+function copyTable(tableId) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  let tsv = '';
+  for (const row of table.rows) tsv += Array.from(row.cells).map(c => c.textContent.trim()).join('\t') + '\n';
+  navigator.clipboard.writeText(tsv);
+  alert('Copied! Paste directly into Excel or Google Sheets.');
+}
+
+function downloadAll() {
+  const sheets = [
+    {id:'s2table', name:'S2_Phase1_Metrics'},
+    {id:'s3table', name:'S3_Peer_Review'},
+    {id:'s4table', name:'S4_Voting'},
+    {id:'s5table', name:'S5_Phase2_Metrics'},
+    {id:'s6table', name:'S6_Comparison'},
+    {id:'s7table', name:'S7_Synthesis'},
+  ];
+  let csv = '';
+  sheets.forEach(s => {
+    const t = document.getElementById(s.id);
+    if (!t) return;
+    csv += '=== ' + s.name + ' ===\n';
+    for (const row of t.rows) csv += Array.from(row.cells).map(c => `"${c.textContent.trim()}"`).join(',') + '\n';
+    csv += '\n';
+  });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = 'council_results_' + (state.selectedClass || 'run') + '.csv';
+  a.click();
+}
+
+// ─── Init ─────────────────────────────────────
+checkServer();
+setInterval(checkServer, 15000);
+</script>
+</body>
+</html>
