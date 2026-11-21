@@ -6,7 +6,6 @@ Then open: http://localhost:5001
 """
 
 import json
-import re
 import subprocess
 import threading
 import urllib.error
@@ -49,6 +48,35 @@ def _post_json(url, payload, headers):
                                  method="POST")
     with urllib.request.urlopen(req, timeout=180) as resp:
         return json.loads(resp.read().decode())
+
+
+def _extract_json_object(raw, expected_keys):
+    """Extract a JSON object from free-form model output."""
+    decoder = json.JSONDecoder()
+    first_object = None
+    first_error = None
+
+    for start, char in enumerate(raw):
+        if char != "{":
+            continue
+        try:
+            parsed, _ = decoder.raw_decode(raw, start)
+        except json.JSONDecodeError as exc:
+            if first_error is None:
+                first_error = exc
+            continue
+        if not isinstance(parsed, dict):
+            continue
+        if any(key in parsed for key in expected_keys):
+            return parsed
+        if first_object is None:
+            first_object = parsed
+
+    if first_object is not None:
+        return first_object
+    if first_error is not None:
+        raise first_error
+    return None
 
 # ── Job store ──────────────────────────────────────────────────────────────────
 jobs = {}
@@ -476,12 +504,11 @@ def run_synthesis_metrics():
 def parse_review_json():
     raw = request.json.get("raw", "")
     try:
-        match = re.search(r'\{[\s\S]*\}', raw)
-        if not match:
-            return jsonify({"error": "No JSON object found"}), 400
-        parsed = json.loads(match.group())
         criteria = ["assertion_quality","edge_case_handling","semantic_correctness",
                     "readability","redundancy_reduction","branch_coverage_potential"]
+        parsed = _extract_json_object(raw, criteria + ["overall_comments"])
+        if parsed is None:
+            return jsonify({"error": "No JSON object found"}), 400
         scores = {}
         for c in criteria:
             try:
@@ -500,10 +527,14 @@ def parse_review_json():
 def parse_vote_json():
     raw = request.json.get("raw", "")
     try:
-        match = re.search(r'\{[\s\S]*\}', raw)
-        if not match:
+        fields = (
+            "vote", "rank_1", "rank_2", "rank_3",
+            "correctness_rationale", "maintainability_rationale",
+            "assertion_quality_rationale", "edge_case_rationale",
+        )
+        parsed = _extract_json_object(raw, fields)
+        if parsed is None:
             return jsonify({"error": "No JSON object found"}), 400
-        parsed = json.loads(match.group())
         vote = parsed.get("vote", "").strip()
         # Accept blind labels (A/B/C) or real model names — resolution done client-side
         return jsonify({

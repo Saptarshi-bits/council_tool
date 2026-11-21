@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Nothing yet.
 
+### Fixed
+- Review and vote parsing now accepts valid JSON objects surrounded by model commentary.
+
 ## [0.1.0] - 2026-11-03
 
 ### Added
